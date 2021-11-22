@@ -9,7 +9,9 @@ import (
 
 func main() {
 	settings := settings.LoadSettings()
-	storage.StartConnection(settings.Driver, settings.Host, settings.User, settings.Password)
+	if settings.IsValid() {
+		storage.StartConnection(settings.Driver, settings.Host, settings.User, settings.Password)
+	}
 
 	err := http.ListenAndServe(":1462", nil)
 	if err != nil {

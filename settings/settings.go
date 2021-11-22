@@ -29,6 +29,10 @@ func (settings *Settings) Deserialize(bytes []byte) {
 	}
 }
 
+func (settings *Settings) IsValid() bool {
+	return settings.Driver != "" && settings.Host != "" && settings.User != "" && settings.Password != ""
+}
+
 func LoadSettings() *Settings {
 	absolutePath, err := filepath.Abs("./settings/settings.json")
 	if err != nil {
