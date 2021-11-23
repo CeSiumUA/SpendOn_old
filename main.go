@@ -33,6 +33,10 @@ func registerHandlers() {
 		fmt.Fprint(rw, "Hello from SpendOn server!")
 	})
 	http.HandleFunc("/add", func(rw http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			rw.WriteHeader(http.StatusMethodNotAllowed)
+			rw.Write([]byte("Please, use POST method to add new transactions!"))
+		}
 		transaction := models.Transaction{}
 
 		decoder := json.NewDecoder(r.Body)
