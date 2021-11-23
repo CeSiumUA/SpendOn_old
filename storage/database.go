@@ -43,5 +43,9 @@ func InsertTransaction(transaction *models.Transaction) {
 	if err != nil {
 		fmt.Println(err)
 	}
-	fmt.Println(rslt.RowsAffected())
+	rowsAffectedCount, err := rslt.RowsAffected()
+	if err != nil {
+		fmt.Println(err)
+	}
+	fmt.Println(rowsAffectedCount)
 }
