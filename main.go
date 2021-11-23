@@ -36,6 +36,7 @@ func registerHandlers() {
 		if r.Method != http.MethodPost {
 			rw.WriteHeader(http.StatusMethodNotAllowed)
 			rw.Write([]byte("Please, use POST method to add new transactions!"))
+			return
 		}
 		transaction := models.Transaction{}
 
@@ -43,5 +44,27 @@ func registerHandlers() {
 
 		decoder.Decode(&transaction)
 		storage.InsertTransaction(&transaction)
+	})
+	http.HandleFunc("/getcategories", func(rw http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			rw.WriteHeader(http.StatusMethodNotAllowed)
+			rw.Write([]byte("Please, use GET method to get categories!"))
+			return
+		}
+		categories, err := storage.GetCategories()
+		if err != nil {
+			fmt.Println("Listener creation error:", err)
+			rw.WriteHeader(http.StatusInternalServerError)
+			rw.Write([]byte("An error occured on the server! This message is already delivered to developer ;)"))
+			return
+		}
+		encoder := json.NewEncoder(rw)
+		err = encoder.Encode(categories)
+		if err != nil {
+			fmt.Println("Listener creation error:", err)
+			rw.WriteHeader(http.StatusInternalServerError)
+			rw.Write([]byte("An error occured on the server! This message is already delivered to developer ;)"))
+			return
+		}
 	})
 }
