@@ -13,6 +13,10 @@ func main() {
 		storage.StartConnection(settings.Driver, settings.Host, settings.User, settings.Password)
 	}
 
+	http.HandleFunc("/", func(rw http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(rw, "Hello from Go server!")
+	})
+
 	err := http.ListenAndServe(":8080", nil)
 	if err != nil {
 		fmt.Println(err)
