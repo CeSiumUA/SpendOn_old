@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"net/http"
+	"os"
 	"spendon/settings"
 	"spendon/storage"
 )
@@ -18,8 +19,8 @@ func main() {
 	http.HandleFunc("/", func(rw http.ResponseWriter, r *http.Request) {
 		fmt.Fprint(rw, "Hello from Go server!")
 	})
-
-	err := http.ListenAndServe(":8080", nil)
+	port := os.Getenv("PORT")
+	err := http.ListenAndServe(":"+port, nil)
 	if err != nil {
 		fmt.Println("Listener creation error:", err)
 	}
