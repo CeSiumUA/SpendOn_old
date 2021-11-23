@@ -13,7 +13,7 @@ func main() {
 		storage.StartConnection(settings.Driver, settings.Host, settings.User, settings.Password)
 	}
 
-	err := http.ListenAndServe(":1462", nil)
+	err := http.ListenAndServe(":8080", nil)
 	if err != nil {
 		fmt.Println(err)
 	}
