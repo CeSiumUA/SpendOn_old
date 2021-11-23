@@ -2,6 +2,7 @@ package settings
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -38,11 +39,24 @@ func LoadSettings() *Settings {
 	if err != nil {
 		fmt.Println(err)
 	}
+	if _, err := os.Stat(absolutePath); errors.Is(err, os.ErrNotExist) {
+		return loadFromEnvironmentVariables()
+	}
 	bytes, err := os.ReadFile(absolutePath)
 	if err != nil {
 		fmt.Println(err)
 	}
 	settings := Settings{}
 	settings.Deserialize(bytes)
+	return &settings
+}
+
+func loadFromEnvironmentVariables() *Settings {
+	settings := Settings{
+		Driver:   os.Getenv("Spendon_driver"),
+		Host:     os.Getenv("Spendon_host"),
+		User:     os.Getenv("Spendon_user"),
+		Password: os.Getenv("Spendon_password"),
+	}
 	return &settings
 }
