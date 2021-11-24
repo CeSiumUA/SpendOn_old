@@ -53,7 +53,7 @@ func registerHandlers() {
 		}
 		categories, err := storage.GetCategories()
 		if err != nil {
-			fmt.Println("Listener creation error:", err)
+			fmt.Println("Category getching error:", err)
 			rw.WriteHeader(http.StatusInternalServerError)
 			rw.Write([]byte("An error occured on the server! This message is already delivered to developer ;)"))
 			return
@@ -61,7 +61,59 @@ func registerHandlers() {
 		encoder := json.NewEncoder(rw)
 		err = encoder.Encode(categories)
 		if err != nil {
-			fmt.Println("Listener creation error:", err)
+			fmt.Println("Encoding response error:", err)
+			rw.WriteHeader(http.StatusInternalServerError)
+			rw.Write([]byte("An error occured on the server! This message is already delivered to developer ;)"))
+			return
+		}
+	})
+	http.HandleFunc("/updatetransaction", func(rw http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPut {
+			rw.WriteHeader(http.StatusMethodNotAllowed)
+			rw.Write([]byte("Please, use UPDATE method to get categories!"))
+			return
+		}
+		transaction := models.Transaction{}
+
+		decoder := json.NewDecoder(r.Body)
+
+		decoder.Decode(&transaction)
+
+		resultTransaction, err := storage.UpdateTransaction(&transaction)
+
+		if err != nil {
+			fmt.Println("Update transaction error:", err)
+			rw.WriteHeader(http.StatusInternalServerError)
+			rw.Write([]byte("An error occured on the server! This message is already delivered to developer ;)"))
+		} else {
+			encoder := json.NewEncoder(rw)
+			err := encoder.Encode(*resultTransaction)
+			if err != nil {
+				fmt.Println("Encoding response error:", err)
+				rw.WriteHeader(http.StatusInternalServerError)
+				rw.Write([]byte("An error occured on the server! This message is already delivered to developer ;)"))
+			}
+		}
+	})
+	http.HandleFunc("/removetransaction", func(rw http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodDelete {
+			rw.WriteHeader(http.StatusMethodNotAllowed)
+			rw.Write([]byte("Please, use DELETE method to get categories!"))
+			return
+		}
+
+		decoder := json.NewDecoder(r.Body)
+		removeTransaction := models.TransactionRemove{}
+		err := decoder.Decode(&removeTransaction)
+		if err != nil {
+			fmt.Println("Decode body error:", err)
+			rw.WriteHeader(http.StatusInternalServerError)
+			rw.Write([]byte("An error occured on the server! This message is already delivered to developer ;)"))
+			return
+		}
+		err = storage.RemoveTransaction(removeTransaction.TransactionId)
+		if err != nil {
+			fmt.Println("Remove transaction error:", err)
 			rw.WriteHeader(http.StatusInternalServerError)
 			rw.Write([]byte("An error occured on the server! This message is already delivered to developer ;)"))
 			return
