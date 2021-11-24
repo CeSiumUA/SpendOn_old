@@ -9,10 +9,13 @@ import (
 )
 
 type Settings struct {
-	Driver   string
-	Host     string
-	User     string
-	Password string
+	Driver          string
+	Host            string
+	User            string
+	Password        string
+	AllowedLogin    string
+	AllowedPassword string
+	SigningSecret   string
 }
 
 func (settings *Settings) Serialize() []byte {
@@ -53,10 +56,13 @@ func LoadSettings() *Settings {
 
 func loadFromEnvironmentVariables() *Settings {
 	settings := Settings{
-		Driver:   os.Getenv("Spendon_driver"),
-		Host:     os.Getenv("Spendon_host"),
-		User:     os.Getenv("Spendon_user"),
-		Password: os.Getenv("Spendon_password"),
+		Driver:          os.Getenv("Spendon_driver"),
+		Host:            os.Getenv("Spendon_host"),
+		User:            os.Getenv("Spendon_user"),
+		Password:        os.Getenv("Spendon_password"),
+		AllowedLogin:    os.Getenv("ALLOWED_LOGIN"),
+		AllowedPassword: os.Getenv("ALLOWED_PASSWORD"),
+		SigningSecret:   os.Getenv("SIGNING_SECRET"),
 	}
 	return &settings
 }

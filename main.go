@@ -8,12 +8,17 @@ import (
 	"spendon/models"
 	"spendon/settings"
 	"spendon/storage"
+	"time"
+
+	"github.com/golang-jwt/jwt"
 )
 
+var loadedSettings *settings.Settings
+
 func main() {
-	settings := settings.LoadSettings()
-	if settings.IsValid() {
-		storage.StartConnection(settings.Driver, settings.Host, settings.User, settings.Password)
+	loadedSettings = settings.LoadSettings()
+	if loadedSettings.IsValid() {
+		storage.StartConnection(loadedSettings.Driver, loadedSettings.Host, loadedSettings.User, loadedSettings.Password)
 	} else {
 		fmt.Println("Settings were not loaded")
 	}
@@ -70,7 +75,7 @@ func registerHandlers() {
 	http.HandleFunc("/updatetransaction", func(rw http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPut {
 			rw.WriteHeader(http.StatusMethodNotAllowed)
-			rw.Write([]byte("Please, use UPDATE method to get categories!"))
+			rw.Write([]byte("Please, use UPDATE method to update transactions!"))
 			return
 		}
 		transaction := models.Transaction{}
@@ -98,7 +103,7 @@ func registerHandlers() {
 	http.HandleFunc("/removetransaction", func(rw http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodDelete {
 			rw.WriteHeader(http.StatusMethodNotAllowed)
-			rw.Write([]byte("Please, use DELETE method to get categories!"))
+			rw.Write([]byte("Please, use DELETE method to remove transaction!"))
 			return
 		}
 
@@ -114,6 +119,54 @@ func registerHandlers() {
 		err = storage.RemoveTransaction(removeTransaction.TransactionId)
 		if err != nil {
 			fmt.Println("Remove transaction error:", err)
+			rw.WriteHeader(http.StatusInternalServerError)
+			rw.Write([]byte("An error occured on the server! This message is already delivered to developer ;)"))
+			return
+		}
+	})
+	http.HandleFunc("/login", func(rw http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			rw.WriteHeader(http.StatusMethodNotAllowed)
+			rw.Write([]byte("Please, use POST method to login!"))
+			return
+		}
+
+		decoder := json.NewDecoder(r.Body)
+		loginModel := models.Login{}
+		err := decoder.Decode(&loginModel)
+		if err != nil {
+			fmt.Println("Decode body error:", err)
+			rw.WriteHeader(http.StatusInternalServerError)
+			rw.Write([]byte("An error occured on the server! This message is already delivered to developer ;)"))
+			return
+		}
+
+		if loadedSettings.AllowedLogin == "" || loadedSettings.AllowedPassword == "" || loadedSettings.SigningSecret == "" {
+			rw.WriteHeader(http.StatusNotFound)
+			rw.Write([]byte("User, password or secret are not set on the server!"))
+			return
+		}
+		expireDate := time.Now().Add(time.Hour)
+		token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+			"user":       "allowedUser",
+			"expireDate": expireDate,
+		})
+		secretKey := []byte(loadedSettings.SigningSecret)
+		tokenString, err := token.SignedString(secretKey)
+		if err != nil {
+			fmt.Println("Token create error!:", err)
+			rw.WriteHeader(http.StatusInternalServerError)
+			rw.Write([]byte("An error occured on the server! This message is already delivered to developer ;)"))
+			return
+		}
+		loginResult := models.LoginResult{
+			Token:      tokenString,
+			ExpireDate: expireDate,
+		}
+		encoder := json.NewEncoder(rw)
+		err = encoder.Encode(loginResult)
+		if err != nil {
+			fmt.Println("Encoding response error:", err)
 			rw.WriteHeader(http.StatusInternalServerError)
 			rw.Write([]byte("An error occured on the server! This message is already delivered to developer ;)"))
 			return
