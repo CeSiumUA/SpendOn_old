@@ -178,8 +178,8 @@ func registerHandlers() {
 		}
 		expireDate := time.Now().Add(24 * time.Hour)
 		token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-			"user": "allowedUser",
-			"exp":  expireDate,
+			"user": loadedSettings.AllowedLogin,
+			"exp":  expireDate.Unix(),
 		})
 		secretKey := []byte(loadedSettings.SigningSecret)
 		tokenString, err := token.SignedString(secretKey)
@@ -205,16 +205,13 @@ func registerHandlers() {
 }
 
 func ValidateLoginToken(token string) error {
-	jwtToken, err := jwt.Parse(token, func(t *jwt.Token) (interface{}, error) {
-		if t.Method.Alg() != jwt.SigningMethodHS256.Alg() {
-			return nil, fmt.Errorf("Unexpected signing method: %v", t.Header["alg"])
-		}
+	jwtToken, err := jwt.ParseWithClaims(token, &jwt.MapClaims{}, func(t *jwt.Token) (interface{}, error) {
 		return []byte(loadedSettings.SigningSecret), nil
 	})
 	if err != nil {
 		return err
 	}
-	claims, ok := jwtToken.Claims.(jwt.MapClaims)
+	claims, ok := jwtToken.Claims.(*jwt.MapClaims)
 	if !ok {
 		return fmt.Errorf("Validation error")
 	}
@@ -222,7 +219,7 @@ func ValidateLoginToken(token string) error {
 	if validationError != nil {
 		return validationError
 	}
-	userName := claims["user"]
+	userName := (*claims)["user"]
 	if userName != loadedSettings.AllowedLogin {
 		return fmt.Errorf("User not found")
 	}
