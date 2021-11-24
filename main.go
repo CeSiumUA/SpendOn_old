@@ -43,6 +43,14 @@ func registerHandlers() {
 			rw.Write([]byte("Please, use POST method to add new transactions!"))
 			return
 		}
+		authTokenHeader := r.Header.Get("Token")
+		err := ValidateLoginToken(authTokenHeader)
+		if err != nil {
+			fmt.Println(err)
+			rw.WriteHeader(http.StatusUnauthorized)
+			rw.Write([]byte("Authorize failure!"))
+			return
+		}
 		transaction := models.Transaction{}
 
 		decoder := json.NewDecoder(r.Body)
@@ -78,6 +86,14 @@ func registerHandlers() {
 			rw.Write([]byte("Please, use UPDATE method to update transactions!"))
 			return
 		}
+		authTokenHeader := r.Header.Get("Token")
+		err := ValidateLoginToken(authTokenHeader)
+		if err != nil {
+			fmt.Println(err)
+			rw.WriteHeader(http.StatusUnauthorized)
+			rw.Write([]byte("Authorize failure!"))
+			return
+		}
 		transaction := models.Transaction{}
 
 		decoder := json.NewDecoder(r.Body)
@@ -107,9 +123,18 @@ func registerHandlers() {
 			return
 		}
 
+		authTokenHeader := r.Header.Get("Token")
+		err := ValidateLoginToken(authTokenHeader)
+		if err != nil {
+			fmt.Println(err)
+			rw.WriteHeader(http.StatusUnauthorized)
+			rw.Write([]byte("Authorize failure!"))
+			return
+		}
+
 		decoder := json.NewDecoder(r.Body)
 		removeTransaction := models.TransactionRemove{}
-		err := decoder.Decode(&removeTransaction)
+		err = decoder.Decode(&removeTransaction)
 		if err != nil {
 			fmt.Println("Decode body error:", err)
 			rw.WriteHeader(http.StatusInternalServerError)
@@ -146,10 +171,15 @@ func registerHandlers() {
 			rw.Write([]byte("User, password or secret are not set on the server!"))
 			return
 		}
-		expireDate := time.Now().Add(time.Hour)
+		if loadedSettings.AllowedLogin != loginModel.UserName || loadedSettings.AllowedPassword != loginModel.Password {
+			rw.WriteHeader(http.StatusUnauthorized)
+			rw.Write([]byte("User or password are incorrect!"))
+			return
+		}
+		expireDate := time.Now().Add(24 * time.Hour)
 		token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-			"user":       "allowedUser",
-			"expireDate": expireDate,
+			"user": "allowedUser",
+			"exp":  expireDate,
 		})
 		secretKey := []byte(loadedSettings.SigningSecret)
 		tokenString, err := token.SignedString(secretKey)
@@ -172,4 +202,29 @@ func registerHandlers() {
 			return
 		}
 	})
+}
+
+func ValidateLoginToken(token string) error {
+	jwtToken, err := jwt.Parse(token, func(t *jwt.Token) (interface{}, error) {
+		if t.Method.Alg() != jwt.SigningMethodHS256.Alg() {
+			return nil, fmt.Errorf("Unexpected signing method: %v", t.Header["alg"])
+		}
+		return []byte(loadedSettings.SigningSecret), nil
+	})
+	if err != nil {
+		return err
+	}
+	claims, ok := jwtToken.Claims.(jwt.MapClaims)
+	if !ok {
+		return fmt.Errorf("Validation error")
+	}
+	validationError := claims.Valid()
+	if validationError != nil {
+		return validationError
+	}
+	userName := claims["user"]
+	if userName != loadedSettings.AllowedLogin {
+		return fmt.Errorf("User not found")
+	}
+	return nil
 }
