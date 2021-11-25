@@ -58,8 +58,48 @@ func registerHandlers() {
 
 		decoder := json.NewDecoder(r.Body)
 
-		decoder.Decode(&transaction)
+		err = decoder.Decode(&transaction)
+		if err != nil {
+			fmt.Println("Encoding response error:", err)
+			rw.WriteHeader(http.StatusInternalServerError)
+			rw.Write([]byte("An error occured on the server! This message is already delivered to developer ;)"))
+		}
 		storage.InsertTransaction(&transaction)
+	})
+
+	http.HandleFunc("/api/bulkadd", func(rw http.ResponseWriter, r *http.Request) {
+		SetCORS(&rw)
+		if r.Method != http.MethodPost && r.Method != http.MethodOptions {
+			rw.WriteHeader(http.StatusMethodNotAllowed)
+			rw.Write([]byte("Please, use POST method to add new transactions!"))
+			return
+		}
+
+		if r.Method == http.MethodOptions {
+			return
+		}
+
+		authTokenHeader := r.Header.Get("Token")
+		err := ValidateLoginToken(authTokenHeader)
+		if err != nil {
+			fmt.Println(err)
+			rw.WriteHeader(http.StatusUnauthorized)
+			rw.Write([]byte("Authorize failure!"))
+			return
+		}
+		transactions := make(models.BulkTransactions, 0)
+
+		decoder := json.NewDecoder(r.Body)
+
+		err = decoder.Decode(&transactions)
+		if err != nil {
+			fmt.Println("Encoding response error:", err)
+			rw.WriteHeader(http.StatusInternalServerError)
+			rw.Write([]byte("An error occured on the server! This message is already delivered to developer ;)"))
+		}
+		for _, transaction := range transactions {
+			storage.InsertTransaction(&transaction)
+		}
 	})
 	http.HandleFunc("/api/getcategories", func(rw http.ResponseWriter, r *http.Request) {
 		SetCORS(&rw)
@@ -196,7 +236,7 @@ func registerHandlers() {
 			rw.Write([]byte("User or password are incorrect!"))
 			return
 		}
-		expireDate := time.Now().Add(24 * time.Hour)
+		expireDate := time.Now().Add(7 * 24 * time.Hour)
 		token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 			"user": loadedSettings.AllowedLogin,
 			"exp":  expireDate.Unix(),
