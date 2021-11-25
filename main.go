@@ -34,10 +34,12 @@ func main() {
 
 func registerHandlers() {
 	http.HandleFunc("/", func(rw http.ResponseWriter, r *http.Request) {
+		SetCORS(&rw)
 		fmt.Fprint(rw, "Hello from SpendOn server!")
 	})
 	http.HandleFunc("/add", func(rw http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
+		SetCORS(&rw)
+		if r.Method != http.MethodPost && r.Method != http.MethodOptions {
 			rw.WriteHeader(http.StatusMethodNotAllowed)
 			rw.Write([]byte("Please, use POST method to add new transactions!"))
 			return
@@ -58,7 +60,8 @@ func registerHandlers() {
 		storage.InsertTransaction(&transaction)
 	})
 	http.HandleFunc("/getcategories", func(rw http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodGet {
+		SetCORS(&rw)
+		if r.Method != http.MethodGet && r.Method != http.MethodOptions {
 			rw.WriteHeader(http.StatusMethodNotAllowed)
 			rw.Write([]byte("Please, use GET method to get categories!"))
 			return
@@ -80,7 +83,8 @@ func registerHandlers() {
 		}
 	})
 	http.HandleFunc("/updatetransaction", func(rw http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPut {
+		SetCORS(&rw)
+		if r.Method != http.MethodPut && r.Method != http.MethodOptions {
 			rw.WriteHeader(http.StatusMethodNotAllowed)
 			rw.Write([]byte("Please, use UPDATE method to update transactions!"))
 			return
@@ -116,7 +120,8 @@ func registerHandlers() {
 		}
 	})
 	http.HandleFunc("/removetransaction", func(rw http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodDelete {
+		SetCORS(&rw)
+		if r.Method != http.MethodDelete && r.Method != http.MethodOptions {
 			rw.WriteHeader(http.StatusMethodNotAllowed)
 			rw.Write([]byte("Please, use DELETE method to remove transaction!"))
 			return
@@ -149,7 +154,8 @@ func registerHandlers() {
 		}
 	})
 	http.HandleFunc("/login", func(rw http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
+		SetCORS(&rw)
+		if r.Method != http.MethodPost && r.Method != http.MethodOptions {
 			rw.WriteHeader(http.StatusMethodNotAllowed)
 			rw.Write([]byte("Please, use POST method to login!"))
 			return
@@ -201,6 +207,17 @@ func registerHandlers() {
 			return
 		}
 	})
+	http.HandleFunc("/checkauth", func(rw http.ResponseWriter, r *http.Request) {
+		SetCORS(&rw)
+		authTokenHeader := r.Header.Get("Token")
+		err := ValidateLoginToken(authTokenHeader)
+		if err != nil {
+			fmt.Println(err)
+			rw.WriteHeader(http.StatusUnauthorized)
+			rw.Write([]byte("Authorize failure!"))
+			return
+		}
+	})
 }
 
 func ValidateLoginToken(token string) error {
@@ -223,4 +240,9 @@ func ValidateLoginToken(token string) error {
 		return fmt.Errorf("User not found")
 	}
 	return nil
+}
+
+func SetCORS(rw *http.ResponseWriter) {
+	(*rw).Header().Add("Access-Control-Allow-Origin", "*")
+	(*rw).Header().Add("Access-Control-Allow-Headers", "Content-Type")
 }
