@@ -21,6 +21,7 @@ func main() {
 	} else {
 		fmt.Println("Settings were not loaded")
 	}
+	//serveSPA()
 	registerHandlers()
 	port := loadedSettings.Port
 	if port == "" {
@@ -33,17 +34,18 @@ func main() {
 }
 
 func registerHandlers() {
-	http.HandleFunc("/", func(rw http.ResponseWriter, r *http.Request) {
-		SetCORS(&rw)
-		fmt.Fprint(rw, "Hello from SpendOn server!")
-	})
-	http.HandleFunc("/add", func(rw http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/api/add", func(rw http.ResponseWriter, r *http.Request) {
 		SetCORS(&rw)
 		if r.Method != http.MethodPost && r.Method != http.MethodOptions {
 			rw.WriteHeader(http.StatusMethodNotAllowed)
 			rw.Write([]byte("Please, use POST method to add new transactions!"))
 			return
 		}
+
+		if r.Method == http.MethodOptions {
+			return
+		}
+
 		authTokenHeader := r.Header.Get("Token")
 		err := ValidateLoginToken(authTokenHeader)
 		if err != nil {
@@ -59,7 +61,7 @@ func registerHandlers() {
 		decoder.Decode(&transaction)
 		storage.InsertTransaction(&transaction)
 	})
-	http.HandleFunc("/getcategories", func(rw http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/api/getcategories", func(rw http.ResponseWriter, r *http.Request) {
 		SetCORS(&rw)
 		if r.Method != http.MethodGet && r.Method != http.MethodOptions {
 			rw.WriteHeader(http.StatusMethodNotAllowed)
@@ -82,13 +84,18 @@ func registerHandlers() {
 			return
 		}
 	})
-	http.HandleFunc("/updatetransaction", func(rw http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/api/updatetransaction", func(rw http.ResponseWriter, r *http.Request) {
 		SetCORS(&rw)
 		if r.Method != http.MethodPut && r.Method != http.MethodOptions {
 			rw.WriteHeader(http.StatusMethodNotAllowed)
 			rw.Write([]byte("Please, use UPDATE method to update transactions!"))
 			return
 		}
+
+		if r.Method == http.MethodOptions {
+			return
+		}
+
 		authTokenHeader := r.Header.Get("Token")
 		err := ValidateLoginToken(authTokenHeader)
 		if err != nil {
@@ -119,11 +126,15 @@ func registerHandlers() {
 			}
 		}
 	})
-	http.HandleFunc("/removetransaction", func(rw http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/api/removetransaction", func(rw http.ResponseWriter, r *http.Request) {
 		SetCORS(&rw)
 		if r.Method != http.MethodDelete && r.Method != http.MethodOptions {
 			rw.WriteHeader(http.StatusMethodNotAllowed)
 			rw.Write([]byte("Please, use DELETE method to remove transaction!"))
+			return
+		}
+
+		if r.Method == http.MethodOptions {
 			return
 		}
 
@@ -153,11 +164,15 @@ func registerHandlers() {
 			return
 		}
 	})
-	http.HandleFunc("/login", func(rw http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/api/login", func(rw http.ResponseWriter, r *http.Request) {
 		SetCORS(&rw)
 		if r.Method != http.MethodPost && r.Method != http.MethodOptions {
 			rw.WriteHeader(http.StatusMethodNotAllowed)
 			rw.Write([]byte("Please, use POST method to login!"))
+			return
+		}
+
+		if r.Method == http.MethodOptions {
 			return
 		}
 
@@ -207,8 +222,11 @@ func registerHandlers() {
 			return
 		}
 	})
-	http.HandleFunc("/checkauth", func(rw http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/api/checkauth", func(rw http.ResponseWriter, r *http.Request) {
 		SetCORS(&rw)
+		if r.Method == http.MethodOptions {
+			return
+		}
 		authTokenHeader := r.Header.Get("Token")
 		err := ValidateLoginToken(authTokenHeader)
 		if err != nil {
@@ -244,5 +262,6 @@ func ValidateLoginToken(token string) error {
 
 func SetCORS(rw *http.ResponseWriter) {
 	(*rw).Header().Add("Access-Control-Allow-Origin", "*")
-	(*rw).Header().Add("Access-Control-Allow-Headers", "Content-Type")
+	(*rw).Header().Add("Access-Control-Allow-Methods", "*")
+	(*rw).Header().Add("Access-Control-Allow-Headers", "*")
 }
