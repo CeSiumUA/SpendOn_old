@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"os"
 	"spendon/models"
 	"spendon/settings"
 	"spendon/storage"
@@ -23,7 +22,7 @@ func main() {
 		fmt.Println("Settings were not loaded")
 	}
 	registerHandlers()
-	port := os.Getenv("PORT")
+	port := loadedSettings.Port
 	if port == "" {
 		port = "8080"
 	}

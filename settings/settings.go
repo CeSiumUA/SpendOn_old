@@ -16,6 +16,7 @@ type Settings struct {
 	AllowedLogin    string
 	AllowedPassword string
 	SigningSecret   string
+	Port            string
 }
 
 func (settings *Settings) Serialize() []byte {
@@ -63,6 +64,7 @@ func loadFromEnvironmentVariables() *Settings {
 		AllowedLogin:    os.Getenv("ALLOWED_LOGIN"),
 		AllowedPassword: os.Getenv("ALLOWED_PASSWORD"),
 		SigningSecret:   os.Getenv("SIGNING_SECRET"),
+		Port:            os.Getenv("PORT"),
 	}
 	return &settings
 }
