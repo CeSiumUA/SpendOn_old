@@ -1,7 +1,7 @@
 package storage
 
 import (
-	"crypto"
+	"crypto/sha256"
 	"database/sql"
 	"fmt"
 	"net/url"
@@ -121,11 +121,11 @@ func GetUserByPassword(password, login string) (*models.DbLogin, error) {
 		return &models.DbLogin{}, fmt.Errorf("DB not connected")
 	}
 	dbLogin := models.DbLogin{}
-	pwdHasher := crypto.SHA512.New()
-	pwdHash := pwdHasher.Sum([]byte(password))
+	pwdHash := sha256.Sum256([]byte(password))
+	pwdHashString := fmt.Sprintf("%x", pwdHash)
 	row := databaseConnection.QueryRow(getUserByPassword,
 		sql.Named("LOGIN", login),
-		sql.Named("PWD", string(pwdHash)))
+		sql.Named("PWD", pwdHashString))
 	err := row.Scan(&dbLogin.Id, &dbLogin.Login)
 	if err != nil {
 		return &dbLogin, err

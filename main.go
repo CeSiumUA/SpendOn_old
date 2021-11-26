@@ -234,6 +234,11 @@ func registerHandlers() {
 
 		dbLogin, err := storage.GetUserByPassword(loginModel.Password, loginModel.UserName)
 
+		if err != nil {
+			rw.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+
 		if dbLogin.Login != loginModel.UserName {
 			rw.WriteHeader(http.StatusUnauthorized)
 			rw.Write([]byte("User or password are incorrect!"))
