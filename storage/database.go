@@ -36,7 +36,7 @@ func StartConnection(driverName, host, user, password string) {
 	databaseConnection = sql.OpenDB(dbConnector)
 }
 
-func InsertTransaction(transaction *models.Transaction, userId string) error {
+func InsertTransaction(transaction *models.Transaction, userId int64) error {
 	if databaseConnection == nil {
 		fmt.Println("DB not connected!")
 		return fmt.Errorf("DB not connected")
@@ -83,7 +83,7 @@ func GetCategories() (models.Categories, error) {
 	return categories, err
 }
 
-func UpdateTransaction(transaction *models.Transaction, userId string) (*models.Transaction, error) {
+func UpdateTransaction(transaction *models.Transaction, userId int64) (*models.Transaction, error) {
 	if databaseConnection == nil {
 		return &models.Transaction{}, fmt.Errorf("DB not connected")
 	}
@@ -102,7 +102,7 @@ func UpdateTransaction(transaction *models.Transaction, userId string) (*models.
 	return transaction, nil
 }
 
-func RemoveTransaction(id string, userId string) error {
+func RemoveTransaction(id string, userId int64) error {
 	if databaseConnection == nil {
 		return fmt.Errorf("DB not connected")
 	}
@@ -130,6 +130,10 @@ func GetUserByPassword(password, login string) (*models.DbLogin, error) {
 	if err != nil {
 		return &dbLogin, err
 	}
+
+	if err != nil {
+		return &dbLogin, err
+	}
 	return &dbLogin, nil
 }
 
@@ -140,7 +144,12 @@ func GetUserByLogin(login string) (*models.DbLogin, error) {
 	}
 	row := databaseConnection.QueryRow(getUserByLogin,
 		sql.Named("LOGIN", login))
+
 	err := row.Scan(&dbLogin.Id, &dbLogin.Login)
+	if err != nil {
+		return &dbLogin, err
+	}
+
 	if err != nil {
 		return &dbLogin, err
 	}

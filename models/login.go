@@ -1,6 +1,8 @@
 package models
 
-import "time"
+import (
+	"time"
+)
 
 type Login struct {
 	UserName string
@@ -13,6 +15,6 @@ type LoginResult struct {
 }
 
 type DbLogin struct {
-	Id    string
+	Id    int64
 	Login string
 }
