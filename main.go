@@ -47,7 +47,7 @@ func registerHandlers() {
 		}
 
 		authTokenHeader := r.Header.Get("Token")
-		err := ValidateLoginToken(authTokenHeader)
+		dbLogin, err := ValidateLoginToken(authTokenHeader)
 		if err != nil {
 			fmt.Println(err)
 			rw.WriteHeader(http.StatusUnauthorized)
@@ -64,7 +64,7 @@ func registerHandlers() {
 			rw.WriteHeader(http.StatusInternalServerError)
 			rw.Write([]byte("An error occured on the server! This message is already delivered to developer ;)"))
 		}
-		storage.InsertTransaction(&transaction)
+		storage.InsertTransaction(&transaction, dbLogin.Id)
 	})
 
 	http.HandleFunc("/api/bulkadd", func(rw http.ResponseWriter, r *http.Request) {
@@ -80,7 +80,7 @@ func registerHandlers() {
 		}
 
 		authTokenHeader := r.Header.Get("Token")
-		err := ValidateLoginToken(authTokenHeader)
+		dbLogin, err := ValidateLoginToken(authTokenHeader)
 		if err != nil {
 			fmt.Println(err)
 			rw.WriteHeader(http.StatusUnauthorized)
@@ -98,7 +98,7 @@ func registerHandlers() {
 			rw.Write([]byte("An error occured on the server! This message is already delivered to developer ;)"))
 		}
 		for _, transaction := range transactions {
-			storage.InsertTransaction(&transaction)
+			storage.InsertTransaction(&transaction, dbLogin.Id)
 		}
 	})
 	http.HandleFunc("/api/getcategories", func(rw http.ResponseWriter, r *http.Request) {
@@ -137,7 +137,7 @@ func registerHandlers() {
 		}
 
 		authTokenHeader := r.Header.Get("Token")
-		err := ValidateLoginToken(authTokenHeader)
+		dbLogin, err := ValidateLoginToken(authTokenHeader)
 		if err != nil {
 			fmt.Println(err)
 			rw.WriteHeader(http.StatusUnauthorized)
@@ -150,7 +150,7 @@ func registerHandlers() {
 
 		decoder.Decode(&transaction)
 
-		resultTransaction, err := storage.UpdateTransaction(&transaction)
+		resultTransaction, err := storage.UpdateTransaction(&transaction, dbLogin.Id)
 
 		if err != nil {
 			fmt.Println("Update transaction error:", err)
@@ -179,7 +179,7 @@ func registerHandlers() {
 		}
 
 		authTokenHeader := r.Header.Get("Token")
-		err := ValidateLoginToken(authTokenHeader)
+		dbLogin, err := ValidateLoginToken(authTokenHeader)
 		if err != nil {
 			fmt.Println(err)
 			rw.WriteHeader(http.StatusUnauthorized)
@@ -196,7 +196,7 @@ func registerHandlers() {
 			rw.Write([]byte("An error occured on the server! This message is already delivered to developer ;)"))
 			return
 		}
-		err = storage.RemoveTransaction(removeTransaction.TransactionId)
+		err = storage.RemoveTransaction(removeTransaction.TransactionId, dbLogin.Id)
 		if err != nil {
 			fmt.Println("Remove transaction error:", err)
 			rw.WriteHeader(http.StatusInternalServerError)
@@ -226,19 +226,22 @@ func registerHandlers() {
 			return
 		}
 
-		if loadedSettings.AllowedLogin == "" || loadedSettings.AllowedPassword == "" || loadedSettings.SigningSecret == "" {
+		if loadedSettings.SigningSecret == "" {
 			rw.WriteHeader(http.StatusNotFound)
-			rw.Write([]byte("User, password or secret are not set on the server!"))
+			rw.Write([]byte("Secret is not set on the server!"))
 			return
 		}
-		if loadedSettings.AllowedLogin != loginModel.UserName || loadedSettings.AllowedPassword != loginModel.Password {
+
+		dbLogin, err := storage.GetUserByPassword(loginModel.Password, loginModel.UserName)
+
+		if dbLogin.Login != loginModel.UserName {
 			rw.WriteHeader(http.StatusUnauthorized)
 			rw.Write([]byte("User or password are incorrect!"))
 			return
 		}
 		expireDate := time.Now().Add(7 * 24 * time.Hour)
 		token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-			"user": loadedSettings.AllowedLogin,
+			"user": dbLogin.Login,
 			"exp":  expireDate.Unix(),
 		})
 		secretKey := []byte(loadedSettings.SigningSecret)
@@ -268,36 +271,43 @@ func registerHandlers() {
 			return
 		}
 		authTokenHeader := r.Header.Get("Token")
-		err := ValidateLoginToken(authTokenHeader)
+		dbLogin, err := ValidateLoginToken(authTokenHeader)
 		if err != nil {
 			fmt.Println(err)
 			rw.WriteHeader(http.StatusUnauthorized)
 			rw.Write([]byte("Authorize failure!"))
 			return
 		}
+		rw.WriteHeader(http.StatusOK)
+		rw.Write([]byte("User found: " + dbLogin.Login))
 	})
 }
 
-func ValidateLoginToken(token string) error {
+func ValidateLoginToken(token string) (*models.DbLogin, error) {
 	jwtToken, err := jwt.ParseWithClaims(token, &jwt.MapClaims{}, func(t *jwt.Token) (interface{}, error) {
 		return []byte(loadedSettings.SigningSecret), nil
 	})
 	if err != nil {
-		return err
+		return &models.DbLogin{}, err
 	}
 	claims, ok := jwtToken.Claims.(*jwt.MapClaims)
 	if !ok {
-		return fmt.Errorf("Validation error")
+		return &models.DbLogin{}, fmt.Errorf("validation error")
 	}
 	validationError := claims.Valid()
 	if validationError != nil {
-		return validationError
+		return &models.DbLogin{}, validationError
 	}
 	userName := (*claims)["user"]
-	if userName != loadedSettings.AllowedLogin {
-		return fmt.Errorf("User not found")
+	userNameStr := fmt.Sprintf("%v", userName)
+	dbLogin, err := storage.GetUserByLogin(userNameStr)
+	if err != nil {
+		return dbLogin, err
 	}
-	return nil
+	if userNameStr != dbLogin.Login {
+		return dbLogin, fmt.Errorf("user not found")
+	}
+	return dbLogin, nil
 }
 
 func SetCORS(rw *http.ResponseWriter) {

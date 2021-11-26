@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"crypto"
 	"database/sql"
 	"fmt"
 	"net/url"
@@ -10,10 +11,12 @@ import (
 )
 
 const (
-	insertTransaction = "INSERT INTO dbo.Transactions (Id, Amount, SpentAt, Note, CategoryId) VALUES (newid(), @AMOUNT, @SpentAt, @Note, @Category)"
+	insertTransaction = "INSERT INTO dbo.Transactions (Id, Amount, SpentAt, Note, CategoryId, UserId) VALUES (newid(), @AMOUNT, @SpentAt, @Note, @Category, @UserId)"
 	selectCategories  = "SELECT * FROM dbo.Categories"
-	updateTransaction = "UPDATE dbo.Transactions SET Amount=@AMOUNT, SpentAt=@SPENTAT, Note=@NOTE, CategoryId=@CATEGORYID where Id=@ID"
-	removeTransaction = "DELETE FROM dbo.Transactions WHERE Id=@ID"
+	updateTransaction = "UPDATE dbo.Transactions SET Amount=@AMOUNT, SpentAt=@SPENTAT, Note=@NOTE, CategoryId=@CATEGORYID where Id=@ID and UserId=@UserId"
+	removeTransaction = "DELETE FROM dbo.Transactions WHERE Id=@ID and UserId=@UserId"
+	getUserByPassword = "SELECT Id, Login from dbo.Users WHERE Login=@LOGIN and PasswordHash=@PWD"
+	getUserByLogin    = "SELECT Id, Login from dbo.Users WHERE Login=@LOGIN"
 )
 
 var databaseConnection *sql.DB
@@ -33,7 +36,7 @@ func StartConnection(driverName, host, user, password string) {
 	databaseConnection = sql.OpenDB(dbConnector)
 }
 
-func InsertTransaction(transaction *models.Transaction) error {
+func InsertTransaction(transaction *models.Transaction, userId string) error {
 	if databaseConnection == nil {
 		fmt.Println("DB not connected!")
 		return fmt.Errorf("DB not connected")
@@ -42,7 +45,8 @@ func InsertTransaction(transaction *models.Transaction) error {
 		sql.Named("AMOUNT", transaction.Amount),
 		sql.Named("SpentAt", transaction.SpentAt),
 		sql.Named("Note", transaction.Note),
-		sql.Named("Category", transaction.CategoryId))
+		sql.Named("Category", transaction.CategoryId),
+		sql.Named("UserId", userId))
 	if err != nil {
 		fmt.Println(err)
 		return err
@@ -79,7 +83,7 @@ func GetCategories() (models.Categories, error) {
 	return categories, err
 }
 
-func UpdateTransaction(transaction *models.Transaction) (*models.Transaction, error) {
+func UpdateTransaction(transaction *models.Transaction, userId string) (*models.Transaction, error) {
 	if databaseConnection == nil {
 		return &models.Transaction{}, fmt.Errorf("DB not connected")
 	}
@@ -88,7 +92,8 @@ func UpdateTransaction(transaction *models.Transaction) (*models.Transaction, er
 		sql.Named("SPENTAT", transaction.SpentAt),
 		sql.Named("NOTE", transaction.Note),
 		sql.Named("CATEGORYID", transaction.CategoryId),
-		sql.Named("ID", transaction.Id))
+		sql.Named("ID", transaction.Id),
+		sql.Named("UserId", userId))
 	if err != nil {
 		fmt.Println(err)
 		return &models.Transaction{}, err
@@ -97,14 +102,47 @@ func UpdateTransaction(transaction *models.Transaction) (*models.Transaction, er
 	return transaction, nil
 }
 
-func RemoveTransaction(id string) error {
+func RemoveTransaction(id string, userId string) error {
 	if databaseConnection == nil {
 		return fmt.Errorf("DB not connected")
 	}
-	result, err := databaseConnection.Exec(removeTransaction, sql.Named("ID", id))
+	result, err := databaseConnection.Exec(removeTransaction,
+		sql.Named("ID", id),
+		sql.Named("UserId", userId))
 	if err != nil {
 		return err
 	}
 	fmt.Println("Delete result:", result)
 	return nil
+}
+
+func GetUserByPassword(password, login string) (*models.DbLogin, error) {
+	if databaseConnection == nil {
+		return &models.DbLogin{}, fmt.Errorf("DB not connected")
+	}
+	dbLogin := models.DbLogin{}
+	pwdHasher := crypto.SHA512.New()
+	pwdHash := pwdHasher.Sum([]byte(password))
+	row := databaseConnection.QueryRow(getUserByPassword,
+		sql.Named("LOGIN", login),
+		sql.Named("PWD", string(pwdHash)))
+	err := row.Scan(&dbLogin.Id, &dbLogin.Login)
+	if err != nil {
+		return &dbLogin, err
+	}
+	return &dbLogin, nil
+}
+
+func GetUserByLogin(login string) (*models.DbLogin, error) {
+	dbLogin := models.DbLogin{}
+	if databaseConnection == nil {
+		return &dbLogin, fmt.Errorf("DB not connected")
+	}
+	row := databaseConnection.QueryRow(getUserByLogin,
+		sql.Named("LOGIN", login))
+	err := row.Scan(&dbLogin.Id, &dbLogin.Login)
+	if err != nil {
+		return &dbLogin, err
+	}
+	return &dbLogin, nil
 }
