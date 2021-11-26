@@ -284,7 +284,7 @@ func registerHandlers() {
 			return
 		}
 		rw.WriteHeader(http.StatusOK)
-		rw.Write([]byte("User found: " + dbLogin.Login))
+		fmt.Println("User found: " + dbLogin.Login)
 	})
 }
 
