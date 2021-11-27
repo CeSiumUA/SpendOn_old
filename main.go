@@ -293,7 +293,7 @@ func registerHandlers() {
 		}
 		if r.Method != http.MethodPost {
 			rw.WriteHeader(http.StatusMethodNotAllowed)
-			rw.Write([]byte("Please, use POST method to login!"))
+			rw.Write([]byte("Please, use POST method to fetch transactions!"))
 			return
 		}
 		authTokenHeader := r.Header.Get("Token")
@@ -313,6 +313,42 @@ func registerHandlers() {
 		}
 		encoder := json.NewEncoder(rw)
 		err = encoder.Encode(transactions)
+		if err != nil {
+			fmt.Println("Encoding response error:", err)
+			rw.WriteHeader(http.StatusInternalServerError)
+			rw.Write([]byte("An error occured on the server! This message is already delivered to developer ;)"))
+			return
+		}
+	})
+	http.HandleFunc("/api/getcategoriesstats", func(rw http.ResponseWriter, r *http.Request) {
+		SetCORS(&rw)
+		if r.Method == http.MethodOptions {
+			return
+		}
+		if r.Method != http.MethodPost {
+			rw.WriteHeader(http.StatusMethodNotAllowed)
+			rw.Write([]byte("Please, use POST method to get stats!"))
+			return
+		}
+
+		authTokenHeader := r.Header.Get("Token")
+		dbLogin, err := ValidateLoginToken(authTokenHeader)
+		if err != nil {
+			fmt.Println(err)
+			rw.WriteHeader(http.StatusUnauthorized)
+			rw.Write([]byte("Authorize failure!"))
+			return
+		}
+
+		categorySummaries, err := storage.GetTransactionsSummary(dbLogin.Id)
+		if err != nil {
+			fmt.Println("Fetching transactions error:", err)
+			rw.WriteHeader(http.StatusInternalServerError)
+			rw.Write([]byte("An error occured on the server! This message is already delivered to developer ;)"))
+			return
+		}
+		encoder := json.NewEncoder(rw)
+		err = encoder.Encode(categorySummaries)
 		if err != nil {
 			fmt.Println("Encoding response error:", err)
 			rw.WriteHeader(http.StatusInternalServerError)

@@ -18,6 +18,7 @@ const (
 	getAllTransactions = "SELECT Id, Amount, SpentAt, Note, CategoryId FROM dbo.Transactions WHERE UserId=@UserId"
 	getUserByPassword  = "SELECT Id, Login from dbo.Users WHERE Login=@LOGIN and PasswordHash=@PWD"
 	getUserByLogin     = "SELECT Id, Login from dbo.Users WHERE Login=@LOGIN"
+	getStatistics      = "SELECT CategoryId , SUM(Amount) from Transactions where UserId=@UserId GROUP BY CategoryId"
 )
 
 var databaseConnection *sql.DB
@@ -179,4 +180,28 @@ func GetAllTransactions(userId int64) (models.BulkTransactions, error) {
 		}
 	}
 	return transactions, nil
+}
+
+func GetTransactionsSummary(userId int64) (models.CategoriesSummary, error) {
+	if databaseConnection == nil {
+		return nil, fmt.Errorf("DB not connected")
+	}
+	rows, err := databaseConnection.Query(getStatistics,
+		sql.Named("UserId", userId))
+	if err != nil {
+		fmt.Println(err)
+		return nil, err
+	}
+	categoriesSummary := make(models.CategoriesSummary, 0)
+	for rows.Next() {
+		categorySummary := models.CategorySummary{}
+		err := rows.Scan(&categorySummary.CategoryId, &categorySummary.Sum)
+		if err != nil {
+			fmt.Println(err)
+			return categoriesSummary, err
+		} else {
+			categoriesSummary = append(categoriesSummary, categorySummary)
+		}
+	}
+	return categoriesSummary, nil
 }
