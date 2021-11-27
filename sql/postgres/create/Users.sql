@@ -14,3 +14,6 @@ GO
 
 alter table Transactions
 add foreign key(UserId) references Users(Id)
+
+alter table Users
+add Currency nvarchar(3)

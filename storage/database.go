@@ -11,12 +11,13 @@ import (
 )
 
 const (
-	insertTransaction = "INSERT INTO dbo.Transactions (Id, Amount, SpentAt, Note, CategoryId, UserId) VALUES (newid(), @AMOUNT, @SpentAt, @Note, @Category, @UserId)"
-	selectCategories  = "SELECT * FROM dbo.Categories"
-	updateTransaction = "UPDATE dbo.Transactions SET Amount=@AMOUNT, SpentAt=@SPENTAT, Note=@NOTE, CategoryId=@CATEGORYID where Id=@ID and UserId=@UserId"
-	removeTransaction = "DELETE FROM dbo.Transactions WHERE Id=@ID and UserId=@UserId"
-	getUserByPassword = "SELECT Id, Login from dbo.Users WHERE Login=@LOGIN and PasswordHash=@PWD"
-	getUserByLogin    = "SELECT Id, Login from dbo.Users WHERE Login=@LOGIN"
+	insertTransaction  = "INSERT INTO dbo.Transactions (Id, Amount, SpentAt, Note, CategoryId, UserId) VALUES (newid(), @AMOUNT, @SpentAt, @Note, @Category, @UserId)"
+	selectCategories   = "SELECT * FROM dbo.Categories"
+	updateTransaction  = "UPDATE dbo.Transactions SET Amount=@AMOUNT, SpentAt=@SPENTAT, Note=@NOTE, CategoryId=@CATEGORYID where Id=@ID and UserId=@UserId"
+	removeTransaction  = "DELETE FROM dbo.Transactions WHERE Id=@ID and UserId=@UserId"
+	getAllTransactions = "SELECT Id, Amount, SpentAt, Note, CategoryId FROM dbo.Transactions WHERE UserId=@UserId"
+	getUserByPassword  = "SELECT Id, Login from dbo.Users WHERE Login=@LOGIN and PasswordHash=@PWD"
+	getUserByLogin     = "SELECT Id, Login from dbo.Users WHERE Login=@LOGIN"
 )
 
 var databaseConnection *sql.DB
@@ -154,4 +155,28 @@ func GetUserByLogin(login string) (*models.DbLogin, error) {
 		return &dbLogin, err
 	}
 	return &dbLogin, nil
+}
+
+func GetAllTransactions(userId int64) (models.BulkTransactions, error) {
+	if databaseConnection == nil {
+		return nil, fmt.Errorf("DB not connected")
+	}
+	rows, err := databaseConnection.Query(getAllTransactions,
+		sql.Named("UserId", userId))
+	if err != nil {
+		fmt.Println(err)
+		return nil, err
+	}
+	transactions := make(models.BulkTransactions, 0)
+	for rows.Next() {
+		transaction := models.Transaction{}
+		err := rows.Scan(&transaction.Id, &transaction.Amount, &transaction.SpentAt, &transaction.Note, &transaction.CategoryId)
+		if err != nil {
+			fmt.Println(err)
+			return transactions, err
+		} else {
+			transactions = append(transactions, transaction)
+		}
+	}
+	return transactions, nil
 }

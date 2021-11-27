@@ -286,6 +286,40 @@ func registerHandlers() {
 		rw.WriteHeader(http.StatusOK)
 		fmt.Println("User found: " + dbLogin.Login)
 	})
+	http.HandleFunc("/api/fetchtransactions", func(rw http.ResponseWriter, r *http.Request) {
+		SetCORS(&rw)
+		if r.Method == http.MethodOptions {
+			return
+		}
+		if r.Method != http.MethodPost {
+			rw.WriteHeader(http.StatusMethodNotAllowed)
+			rw.Write([]byte("Please, use POST method to login!"))
+			return
+		}
+		authTokenHeader := r.Header.Get("Token")
+		dbLogin, err := ValidateLoginToken(authTokenHeader)
+		if err != nil {
+			fmt.Println(err)
+			rw.WriteHeader(http.StatusUnauthorized)
+			rw.Write([]byte("Authorize failure!"))
+			return
+		}
+		transactions, err := storage.GetAllTransactions(dbLogin.Id)
+		if err != nil {
+			fmt.Println("Fetching transactions error:", err)
+			rw.WriteHeader(http.StatusInternalServerError)
+			rw.Write([]byte("An error occured on the server! This message is already delivered to developer ;)"))
+			return
+		}
+		encoder := json.NewEncoder(rw)
+		err = encoder.Encode(transactions)
+		if err != nil {
+			fmt.Println("Encoding response error:", err)
+			rw.WriteHeader(http.StatusInternalServerError)
+			rw.Write([]byte("An error occured on the server! This message is already delivered to developer ;)"))
+			return
+		}
+	})
 }
 
 func ValidateLoginToken(token string) (*models.DbLogin, error) {
