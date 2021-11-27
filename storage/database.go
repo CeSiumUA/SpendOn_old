@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	insertTransaction  = "INSERT INTO dbo.Transactions (Id, Amount, SpentAt, Note, CategoryId, UserId) VALUES (newid(), @AMOUNT, @SpentAt, @Note, @Category, @UserId)"
+	insertTransaction  = "INSERT INTO dbo.Transactions (Amount, SpentAt, Note, CategoryId, UserId) VALUES (@AMOUNT, @SpentAt, @Note, @Category, @UserId)"
 	selectCategories   = "SELECT * FROM dbo.Categories"
 	updateTransaction  = "UPDATE dbo.Transactions SET Amount=@AMOUNT, SpentAt=@SPENTAT, Note=@NOTE, CategoryId=@CATEGORYID where Id=@ID and UserId=@UserId"
 	removeTransaction  = "DELETE FROM dbo.Transactions WHERE Id=@ID and UserId=@UserId"
