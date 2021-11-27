@@ -1,6 +1,6 @@
 create table Transactions
 (
-	Id uniqueidentifier primary key,
+	Id bigint primary key,
 	Amount MONEY NOT NULL,
 	SpentAt DATETIME2 NOT NULL,
 	Note NVARCHAR(max),

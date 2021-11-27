@@ -6,7 +6,7 @@ type TransactionRemove struct {
 
 type BulkTransactions []Transaction
 type Transaction struct {
-	Id         string
+	Id         int64
 	Amount     float32
 	SpentAt    string
 	Note       string
