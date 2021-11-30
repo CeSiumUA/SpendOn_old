@@ -304,7 +304,10 @@ func registerHandlers() {
 			rw.Write([]byte("Authorize failure!"))
 			return
 		}
-		transactions, err := storage.GetAllTransactions(dbLogin.Id)
+		decoder := json.NewDecoder(r.Body)
+		filteredRequest := models.FilteredRequest{}
+		decoder.Decode(&filteredRequest)
+		transactions, err := storage.GetAllTransactions(dbLogin.Id, filteredRequest.PageNumber, filteredRequest.Pagination)
 		if err != nil {
 			fmt.Println("Fetching transactions error:", err)
 			rw.WriteHeader(http.StatusInternalServerError)

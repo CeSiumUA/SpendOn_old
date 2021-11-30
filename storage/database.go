@@ -11,14 +11,15 @@ import (
 )
 
 const (
-	insertTransaction  = "INSERT INTO dbo.Transactions (Amount, SpentAt, Note, CategoryId, UserId) VALUES (@AMOUNT, @SpentAt, @Note, @Category, @UserId)"
-	selectCategories   = "SELECT * FROM dbo.Categories"
-	updateTransaction  = "UPDATE dbo.Transactions SET Amount=@AMOUNT, SpentAt=@SPENTAT, Note=@NOTE, CategoryId=@CATEGORYID where Id=@ID and UserId=@UserId"
-	removeTransaction  = "DELETE FROM dbo.Transactions WHERE Id=@ID and UserId=@UserId"
-	getAllTransactions = "SELECT Id, Amount, SpentAt, Note, CategoryId FROM dbo.Transactions WHERE UserId=@UserId"
-	getUserByPassword  = "SELECT Id, Login from dbo.Users WHERE Login=@LOGIN and PasswordHash=@PWD"
-	getUserByLogin     = "SELECT Id, Login from dbo.Users WHERE Login=@LOGIN"
-	getStatistics      = "SELECT CategoryId , SUM(Amount) from Transactions where UserId=@UserId GROUP BY CategoryId"
+	insertTransaction           = "INSERT INTO dbo.Transactions (Amount, SpentAt, Note, CategoryId, UserId) VALUES (@AMOUNT, @SpentAt, @Note, @Category, @UserId)"
+	selectCategories            = "SELECT * FROM dbo.Categories"
+	updateTransaction           = "UPDATE dbo.Transactions SET Amount=@AMOUNT, SpentAt=@SPENTAT, Note=@NOTE, CategoryId=@CATEGORYID where Id=@ID and UserId=@UserId"
+	removeTransaction           = "DELETE FROM dbo.Transactions WHERE Id=@ID and UserId=@UserId"
+	getPaginatedTransactions    = "SELECT Id, Amount, SpentAt, Note, CategoryId FROM dbo.Transactions WHERE UserId=@UserId ORDER BY SpentAt DESC OFFSET @OFFSETCOUNT ROWS FETCH NEXT @FETCHCOUNT ROWS ONLY"
+	getUserByPassword           = "SELECT Id, Login from dbo.Users WHERE Login=@LOGIN and PasswordHash=@PWD"
+	getUserByLogin              = "SELECT Id, Login from dbo.Users WHERE Login=@LOGIN"
+	getStatistics               = "SELECT CategoryId , SUM(Amount) from Transactions where UserId=@UserId GROUP BY CategoryId"
+	getTransactionsCountForUser = "SELECT COUNT(*) as cnt FROM dbo.Transactions WHERE UserId=@UserId"
 )
 
 var databaseConnection *sql.DB
@@ -104,7 +105,7 @@ func UpdateTransaction(transaction *models.Transaction, userId int64) (*models.T
 	return transaction, nil
 }
 
-func RemoveTransaction(id string, userId int64) error {
+func RemoveTransaction(id, userId int64) error {
 	if databaseConnection == nil {
 		return fmt.Errorf("DB not connected")
 	}
@@ -158,28 +159,39 @@ func GetUserByLogin(login string) (*models.DbLogin, error) {
 	return &dbLogin, nil
 }
 
-func GetAllTransactions(userId int64) (models.BulkTransactions, error) {
+func GetAllTransactions(userId, pageNumber, pagination int64) (models.PagedTransactions, error) {
 	if databaseConnection == nil {
-		return nil, fmt.Errorf("DB not connected")
+		return models.PagedTransactions{}, fmt.Errorf("DB not connected")
 	}
-	rows, err := databaseConnection.Query(getAllTransactions,
-		sql.Named("UserId", userId))
+	offset := pageNumber * pagination
+	rows, err := databaseConnection.Query(getPaginatedTransactions,
+		sql.Named("UserId", userId),
+		sql.Named("OFFSETCOUNT", offset),
+		sql.Named("FETCHCOUNT", pagination))
 	if err != nil {
 		fmt.Println(err)
-		return nil, err
+		return models.PagedTransactions{}, err
 	}
-	transactions := make(models.BulkTransactions, 0)
+	bulkTransactions := models.PagedTransactions{}
+	transactions := make([]models.Transaction, 0)
 	for rows.Next() {
 		transaction := models.Transaction{}
 		err := rows.Scan(&transaction.Id, &transaction.Amount, &transaction.SpentAt, &transaction.Note, &transaction.CategoryId)
 		if err != nil {
 			fmt.Println(err)
-			return transactions, err
+			return models.PagedTransactions{}, err
 		} else {
 			transactions = append(transactions, transaction)
 		}
 	}
-	return transactions, nil
+	bulkTransactions.Transactions = transactions
+	row := databaseConnection.QueryRow(getTransactionsCountForUser,
+		sql.Named("UserId", userId))
+	err = row.Scan(&bulkTransactions.Count)
+	if err != nil {
+		return models.PagedTransactions{}, nil
+	}
+	return bulkTransactions, nil
 }
 
 func GetTransactionsSummary(userId int64) (models.CategoriesSummary, error) {
