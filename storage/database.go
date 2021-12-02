@@ -15,7 +15,7 @@ const (
 	selectCategories            = "SELECT * FROM dbo.Categories"
 	updateTransaction           = "UPDATE dbo.Transactions SET Amount=@AMOUNT, SpentAt=@SPENTAT, Note=@NOTE, CategoryId=@CATEGORYID where Id=@ID and UserId=@UserId"
 	removeTransaction           = "DELETE FROM dbo.Transactions WHERE Id=@ID and UserId=@UserId"
-	getPaginatedTransactions    = "SELECT Id, Amount, SpentAt, Note, CategoryId FROM dbo.Transactions WHERE UserId=@UserId ORDER BY SpentAt DESC OFFSET @OFFSETCOUNT ROWS FETCH NEXT @FETCHCOUNT ROWS ONLY"
+	getPaginatedTransactions    = "SELECT Id, Amount, SpentAt, Note, CategoryId FROM dbo.Transactions WHERE %s UserId=@UserId ORDER BY SpentAt DESC OFFSET @OFFSETCOUNT ROWS FETCH NEXT @FETCHCOUNT ROWS ONLY"
 	getUserByPassword           = "SELECT Id, Login from dbo.Users WHERE Login=@LOGIN and PasswordHash=@PWD"
 	getUserByLogin              = "SELECT Id, Login from dbo.Users WHERE Login=@LOGIN"
 	getStatistics               = "SELECT CategoryId , SUM(Amount) from Transactions where UserId=@UserId GROUP BY CategoryId"
@@ -159,15 +159,32 @@ func GetUserByLogin(login string) (*models.DbLogin, error) {
 	return &dbLogin, nil
 }
 
-func GetAllTransactions(userId, pageNumber, pagination int64) (models.PagedTransactions, error) {
+func GetFilteredTransactions(userId, pageNumber, pagination int64, filterBatch *models.FilterBatch) (models.PagedTransactions, error) {
 	if databaseConnection == nil {
 		return models.PagedTransactions{}, fmt.Errorf("DB not connected")
 	}
+
+	filterString, namedArgs, err := filterBatch.Build()
+
+	if err != nil {
+		return models.PagedTransactions{}, err
+	}
+
 	offset := pageNumber * pagination
-	rows, err := databaseConnection.Query(getPaginatedTransactions,
-		sql.Named("UserId", userId),
-		sql.Named("OFFSETCOUNT", offset),
-		sql.Named("FETCHCOUNT", pagination))
+
+	namedArgs = append(namedArgs, sql.Named("UserId", userId))
+	namedArgs = append(namedArgs, sql.Named("OFFSETCOUNT", offset))
+	namedArgs = append(namedArgs, sql.Named("FETCHCOUNT", pagination))
+
+	interfaceArgs := make([]interface{}, 0)
+
+	for _, arg := range namedArgs {
+		interfaceArgs = append(interfaceArgs, arg)
+	}
+
+	formattedTransaction := fmt.Sprintf(getPaginatedTransactions, filterString)
+	rows, err := databaseConnection.Query(formattedTransaction,
+		interfaceArgs...)
 	if err != nil {
 		fmt.Println(err)
 		return models.PagedTransactions{}, err

@@ -307,7 +307,7 @@ func registerHandlers() {
 		decoder := json.NewDecoder(r.Body)
 		filteredRequest := models.FilteredRequest{}
 		decoder.Decode(&filteredRequest)
-		transactions, err := storage.GetAllTransactions(dbLogin.Id, filteredRequest.PageNumber, filteredRequest.Pagination)
+		transactions, err := storage.GetFilteredTransactions(dbLogin.Id, filteredRequest.PageNumber, filteredRequest.Pagination, &filteredRequest.Filters)
 		if err != nil {
 			fmt.Println("Fetching transactions error:", err)
 			rw.WriteHeader(http.StatusInternalServerError)
