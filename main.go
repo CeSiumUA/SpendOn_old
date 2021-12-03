@@ -124,6 +124,23 @@ func registerHandlers() {
 			return
 		}
 	})
+	http.HandleFunc("/api/getfiltersettings", func(rw http.ResponseWriter, r *http.Request) {
+		SetCORS(&rw)
+		if r.Method != http.MethodGet && r.Method != http.MethodOptions {
+			rw.WriteHeader(http.StatusMethodNotAllowed)
+			rw.Write([]byte("Please, use GET method to get categories!"))
+			return
+		}
+		filterSettings := models.GetFilterSettings()
+		encoder := json.NewEncoder(rw)
+		err := encoder.Encode(filterSettings)
+		if err != nil {
+			fmt.Println("Encoding response error:", err)
+			rw.WriteHeader(http.StatusInternalServerError)
+			rw.Write([]byte("An error occured on the server! This message is already delivered to developer ;)"))
+			return
+		}
+	})
 	http.HandleFunc("/api/updatetransaction", func(rw http.ResponseWriter, r *http.Request) {
 		SetCORS(&rw)
 		if r.Method != http.MethodPut && r.Method != http.MethodOptions {

@@ -8,6 +8,11 @@ import (
 
 type FilterBatch []FilterModel
 
+type FilterSettings struct {
+	Fields map[int]string
+	Signs  map[int]string
+}
+
 type FilteredRequest struct {
 	PageNumber int64
 	Pagination int64
@@ -81,4 +86,11 @@ var fieldsMap map[int]string = map[int]string{
 	SpentAt:    "SpentAt",
 	Note:       "Note",
 	CategoryId: "CategoryId",
+}
+
+func GetFilterSettings() FilterSettings {
+	return FilterSettings{
+		Signs:  signsMap,
+		Fields: fieldsMap,
+	}
 }
