@@ -9,8 +9,8 @@ import (
 type FilterBatch []FilterModel
 
 type FilterSettings struct {
-	Fields map[int]string
-	Signs  map[int]string
+	Fields []map[string]interface{}
+	Signs  []map[string]interface{}
 }
 
 type FilteredRequest struct {
@@ -89,8 +89,26 @@ var fieldsMap map[int]string = map[int]string{
 }
 
 func GetFilterSettings() FilterSettings {
+	fieldsData := make([]map[string]interface{}, 0, 0)
+
+	for counter, field := range fieldsMap {
+		singleMap := make(map[string]interface{})
+		singleMap["index"] = counter
+		singleMap["value"] = field
+		fieldsData = append(fieldsData, singleMap)
+	}
+
+	signsData := make([]map[string]interface{}, 0, 0)
+
+	for counter, field := range signsMap {
+		singleMap := make(map[string]interface{})
+		singleMap["index"] = counter
+		singleMap["value"] = field
+		signsData = append(signsData, singleMap)
+	}
+
 	return FilterSettings{
-		Signs:  signsMap,
-		Fields: fieldsMap,
+		Signs:  signsData,
+		Fields: fieldsData,
 	}
 }
