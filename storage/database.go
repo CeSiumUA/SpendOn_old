@@ -18,7 +18,7 @@ const (
 	getPaginatedTransactions    = "SELECT Id, Amount, SpentAt, Note, CategoryId FROM dbo.Transactions WHERE %s UserId=@UserId ORDER BY SpentAt DESC OFFSET @OFFSETCOUNT ROWS FETCH NEXT @FETCHCOUNT ROWS ONLY"
 	getUserByPassword           = "SELECT Id, Login from dbo.Users WHERE Login=@LOGIN and PasswordHash=@PWD"
 	getUserByLogin              = "SELECT Id, Login from dbo.Users WHERE Login=@LOGIN"
-	getStatistics               = "SELECT CategoryId , SUM(Amount) from Transactions where UserId=@UserId GROUP BY CategoryId"
+	getStatistics               = "SELECT CategoryId , SUM(Amount) from Transactions where %s UserId=@UserId GROUP BY CategoryId"
 	getTransactionsCountForUser = "SELECT COUNT(*) as cnt FROM dbo.Transactions WHERE %s UserId=@UserId"
 )
 
@@ -211,12 +211,29 @@ func GetFilteredTransactions(userId, pageNumber, pagination int64, filterBatch *
 	return bulkTransactions, nil
 }
 
-func GetTransactionsSummary(userId int64) (models.CategoriesSummary, error) {
+func GetTransactionsSummary(userId int64, filterBatch models.FilterBatch) (models.CategoriesSummary, error) {
 	if databaseConnection == nil {
 		return nil, fmt.Errorf("DB not connected")
 	}
-	rows, err := databaseConnection.Query(getStatistics,
-		sql.Named("UserId", userId))
+
+	filterString, namedArgs, err := filterBatch.Build()
+
+	if err != nil {
+		return nil, err
+	}
+
+	namedArgs = append(namedArgs, sql.Named("UserId", userId))
+
+	interfaceArgs := make([]interface{}, 0)
+
+	for _, arg := range namedArgs {
+		interfaceArgs = append(interfaceArgs, arg)
+	}
+
+	formattedResuest := fmt.Sprintf(getStatistics, filterString)
+
+	rows, err := databaseConnection.Query(formattedResuest,
+		interfaceArgs...)
 	if err != nil {
 		fmt.Println(err)
 		return nil, err

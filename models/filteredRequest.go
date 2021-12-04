@@ -66,6 +66,13 @@ const (
 )
 
 const (
+	Number = iota
+	Text
+	Date
+	Select
+)
+
+const (
 	Amount = iota
 	SpentAt
 	Note

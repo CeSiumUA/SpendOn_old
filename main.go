@@ -360,7 +360,11 @@ func registerHandlers() {
 			return
 		}
 
-		categorySummaries, err := storage.GetTransactionsSummary(dbLogin.Id)
+		decoder := json.NewDecoder(r.Body)
+		filterBatch := models.FilterBatch{}
+		decoder.Decode(&filterBatch)
+
+		categorySummaries, err := storage.GetTransactionsSummary(dbLogin.Id, filterBatch)
 		if err != nil {
 			fmt.Println("Fetching transactions error:", err)
 			rw.WriteHeader(http.StatusInternalServerError)
