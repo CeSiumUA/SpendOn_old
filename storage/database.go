@@ -19,7 +19,7 @@ const (
 	getUserByPassword           = "SELECT Id, Login from dbo.Users WHERE Login=@LOGIN and PasswordHash=@PWD"
 	getUserByLogin              = "SELECT Id, Login from dbo.Users WHERE Login=@LOGIN"
 	getStatistics               = "SELECT CategoryId , SUM(Amount) from Transactions where UserId=@UserId GROUP BY CategoryId"
-	getTransactionsCountForUser = "SELECT COUNT(*) as cnt FROM dbo.Transactions WHERE UserId=@UserId"
+	getTransactionsCountForUser = "SELECT COUNT(*) as cnt FROM dbo.Transactions WHERE %s UserId=@UserId"
 )
 
 var databaseConnection *sql.DB
@@ -202,8 +202,8 @@ func GetFilteredTransactions(userId, pageNumber, pagination int64, filterBatch *
 		}
 	}
 	bulkTransactions.Transactions = transactions
-	row := databaseConnection.QueryRow(getTransactionsCountForUser,
-		sql.Named("UserId", userId))
+	row := databaseConnection.QueryRow(fmt.Sprintf(getTransactionsCountForUser, filterString),
+		interfaceArgs...)
 	err = row.Scan(&bulkTransactions.Count)
 	if err != nil {
 		return models.PagedTransactions{}, nil
