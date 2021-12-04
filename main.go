@@ -340,6 +340,58 @@ func registerHandlers() {
 			return
 		}
 	})
+	http.HandleFunc("/api/register", func(rw http.ResponseWriter, r *http.Request) {
+		SetCORS(&rw)
+		if r.Method == http.MethodOptions {
+			return
+		}
+		if r.Method != http.MethodPost {
+			rw.WriteHeader(http.StatusMethodNotAllowed)
+			rw.Write([]byte("Please, use POST method to get stats!"))
+			return
+		}
+
+		decoder := json.NewDecoder(r.Body)
+		registerModel := models.RegisterModel{}
+		decoder.Decode(&registerModel)
+
+		inserted, err := storage.AddUser(&registerModel)
+		if err != nil {
+			fmt.Println(err)
+			rw.WriteHeader(http.StatusUnauthorized)
+			rw.Write([]byte("Authorize failure!"))
+			return
+		}
+		if !inserted {
+			rw.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		expireDate := time.Now().Add(7 * 24 * time.Hour)
+		token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+			"user": registerModel.Login,
+			"exp":  expireDate.Unix(),
+		})
+		secretKey := []byte(loadedSettings.SigningSecret)
+		tokenString, err := token.SignedString(secretKey)
+		if err != nil {
+			fmt.Println("Token create error!:", err)
+			rw.WriteHeader(http.StatusInternalServerError)
+			rw.Write([]byte("An error occured on the server! This message is already delivered to developer ;)"))
+			return
+		}
+		loginResult := models.LoginResult{
+			Token:      tokenString,
+			ExpireDate: expireDate,
+		}
+		encoder := json.NewEncoder(rw)
+		err = encoder.Encode(loginResult)
+		if err != nil {
+			fmt.Println("Encoding response error:", err)
+			rw.WriteHeader(http.StatusInternalServerError)
+			rw.Write([]byte("An error occured on the server! This message is already delivered to developer ;)"))
+			return
+		}
+	})
 	http.HandleFunc("/api/getcategoriesstats", func(rw http.ResponseWriter, r *http.Request) {
 		SetCORS(&rw)
 		if r.Method == http.MethodOptions {

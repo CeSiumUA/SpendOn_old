@@ -12,6 +12,7 @@ import (
 
 const (
 	insertTransaction           = "INSERT INTO dbo.Transactions (Amount, SpentAt, Note, CategoryId, UserId) VALUES (@AMOUNT, @SpentAt, @Note, @Category, @UserId)"
+	insertUser                  = "IF NOT EXISTS (select * from dbo.Users where [Login]=@Login) BEGIN INSERT INTO dbo.Users ([Login], PasswordHash, Currency) VALUES(@Login, @Hash, @Currency) END"
 	selectCategories            = "SELECT * FROM dbo.Categories"
 	updateTransaction           = "UPDATE dbo.Transactions SET Amount=@AMOUNT, SpentAt=@SPENTAT, Note=@NOTE, CategoryId=@CATEGORYID where Id=@ID and UserId=@UserId"
 	removeTransaction           = "DELETE FROM dbo.Transactions WHERE Id=@ID and UserId=@UserId"
@@ -250,4 +251,27 @@ func GetTransactionsSummary(userId int64, filterBatch models.FilterBatch) (model
 		}
 	}
 	return categoriesSummary, nil
+}
+
+func AddUser(registerModel *models.RegisterModel) (bool, error) {
+	if databaseConnection == nil {
+		return false, fmt.Errorf("DB not connected")
+	}
+
+	pwdHash := sha256.Sum256([]byte(registerModel.Password))
+	pwdHashString := fmt.Sprintf("%x", pwdHash)
+
+	sqlResult, err := databaseConnection.Exec(insertUser,
+		sql.Named("Login", registerModel.Login),
+		sql.Named("Hash", pwdHashString),
+		sql.Named("Currency", "UAH"))
+	if err != nil {
+		return false, err
+	}
+	rowResult, err := sqlResult.RowsAffected()
+	if err != nil {
+		return false, err
+	}
+	fmt.Println("Rows affected", rowResult)
+	return rowResult == 1, nil
 }
