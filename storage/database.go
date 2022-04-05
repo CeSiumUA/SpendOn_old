@@ -14,17 +14,18 @@ const (
 	selectCategories            = "SELECT * FROM categories"
 	updateTransaction           = "UPDATE transactions SET amount=$1, spentat=$2, note=$3, categoryid=$4 where id=$5 and userid=$6"
 	removeTransaction           = "DELETE FROM transactions WHERE id=$1 and userid=$2"
-	getPaginatedTransactions    = "SELECT id, amount, spentat, note, categoryid FROM transactions WHERE %s userId=$%d ORDER BY spentat DESC OFFSET $%d ROWS FETCH NEXT $%d ROWS ONLY"
+	getPaginatedTransactions    = "SELECT id, amount::numeric, spentat::text, note, categoryid FROM transactions WHERE %s userId=$%d ORDER BY spentat DESC OFFSET $%d ROWS FETCH NEXT $%d ROWS ONLY"
 	getUserByPassword           = "SELECT id, login from users WHERE login=$1 and passwordhash=$2"
 	getUserByLogin              = "SELECT id, login from users WHERE login=$1"
-	getStatistics               = "SELECT categoryid , SUM(amount) from transactions where %s userid=$%d GROUP BY categoryid"
+	getStatistics               = "SELECT categoryid , SUM(amount)::numeric from transactions where %s userid=$%d GROUP BY categoryid"
 	getTransactionsCountForUser = "SELECT COUNT(*) as cnt FROM transactions WHERE %s userid=$1"
 )
 
 var databaseConnection *pgx.Conn
 
 func StartConnection() {
-	connStr, err := pgx.ParseConnectionString(os.Getenv("DATABASE_URL"))
+	dbUrl := os.Getenv("DATABASE_URL")
+	connStr, err := pgx.ParseConnectionString(dbUrl)
 	if err != nil {
 		fmt.Println("error parsing db url", err)
 	}
@@ -163,7 +164,12 @@ func GetFilteredTransactions(userId, pageNumber, pagination int64, filterBatch *
 
 	offset := pageNumber * pagination
 
+	parameterIndex := len(namedArgs)
+
 	namedArgs = append(namedArgs, userId)
+
+	countArgs := namedArgs
+
 	namedArgs = append(namedArgs, offset)
 	namedArgs = append(namedArgs, pagination)
 
@@ -173,7 +179,6 @@ func GetFilteredTransactions(userId, pageNumber, pagination int64, filterBatch *
 		interfaceArgs = append(interfaceArgs, arg)
 	}
 
-	parameterIndex := len(namedArgs)
 	formattedTransaction := fmt.Sprintf(getPaginatedTransactions, filterString, parameterIndex+1, parameterIndex+2, parameterIndex+3)
 	rows, err := databaseConnection.Query(formattedTransaction,
 		interfaceArgs...)
@@ -194,8 +199,15 @@ func GetFilteredTransactions(userId, pageNumber, pagination int64, filterBatch *
 		}
 	}
 	bulkTransactions.Transactions = transactions
+
+	countInterfaceArgs := make([]interface{}, 0)
+
+	for _, arg := range countArgs {
+		countInterfaceArgs = append(countInterfaceArgs, arg)
+	}
+
 	row := databaseConnection.QueryRow(fmt.Sprintf(getTransactionsCountForUser, filterString),
-		interfaceArgs...)
+		countInterfaceArgs...)
 	err = row.Scan(&bulkTransactions.Count)
 	if err != nil {
 		return models.PagedTransactions{}, nil
@@ -214,6 +226,8 @@ func GetTransactionsSummary(userId int64, filterBatch models.FilterBatch) (model
 		return nil, err
 	}
 
+	parameterIndex := len(namedArgs)
+
 	namedArgs = append(namedArgs, userId)
 
 	interfaceArgs := make([]interface{}, 0)
@@ -222,7 +236,7 @@ func GetTransactionsSummary(userId int64, filterBatch models.FilterBatch) (model
 		interfaceArgs = append(interfaceArgs, arg)
 	}
 
-	formattedRequest := fmt.Sprintf(getStatistics, filterString, len(namedArgs)+1)
+	formattedRequest := fmt.Sprintf(getStatistics, filterString, parameterIndex+1)
 
 	rows, err := databaseConnection.Query(formattedRequest,
 		interfaceArgs...)
