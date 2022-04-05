@@ -1,19 +1,12 @@
 create table Users
 (
 	Id INT primary key,
-	Login nvarchar(max),
-	PasswordHash nvarchar(256)
-)
-
-GO
-
-alter table Transactions 
-add UserId INT not null
-
-GO
+	Login varchar(500),
+	PasswordHash varchar(256)
+);
 
 alter table Transactions
-add foreign key(UserId) references Users(Id)
+add foreign key(UserId) references Users(Id);
 
 alter table Users
-add Currency nvarchar(3)
+add Currency varchar(3)

@@ -17,7 +17,7 @@ var loadedSettings *settings.Settings
 func main() {
 	loadedSettings = settings.LoadSettings()
 	if loadedSettings.IsValid() {
-		storage.StartConnection(loadedSettings.Driver, loadedSettings.Host, loadedSettings.User, loadedSettings.Password)
+		storage.StartConnection()
 	} else {
 		fmt.Println("Settings were not loaded")
 	}
@@ -38,7 +38,7 @@ func registerHandlers() {
 		SetCORS(&rw)
 		if r.Method != http.MethodPost && r.Method != http.MethodOptions {
 			rw.WriteHeader(http.StatusMethodNotAllowed)
-			rw.Write([]byte("Please, use POST method to add new transactions!"))
+			_, _ = rw.Write([]byte("Please, use POST method to add new transactions!"))
 			return
 		}
 
@@ -51,7 +51,7 @@ func registerHandlers() {
 		if err != nil {
 			fmt.Println(err)
 			rw.WriteHeader(http.StatusUnauthorized)
-			rw.Write([]byte("Authorize failure!"))
+			_, _ = rw.Write([]byte("Authorize failure!"))
 			return
 		}
 		transaction := models.Transaction{}
@@ -62,16 +62,16 @@ func registerHandlers() {
 		if err != nil {
 			fmt.Println("Encoding response error:", err)
 			rw.WriteHeader(http.StatusInternalServerError)
-			rw.Write([]byte("An error occured on the server! This message is already delivered to developer ;)"))
+			_, _ = rw.Write([]byte("An error occurred on the server! This message is already delivered to developer ;)"))
 		}
-		storage.InsertTransaction(&transaction, dbLogin.Id)
+		_ = storage.InsertTransaction(&transaction, dbLogin.Id)
 	})
 
 	http.HandleFunc("/api/bulkadd", func(rw http.ResponseWriter, r *http.Request) {
 		SetCORS(&rw)
 		if r.Method != http.MethodPost && r.Method != http.MethodOptions {
 			rw.WriteHeader(http.StatusMethodNotAllowed)
-			rw.Write([]byte("Please, use POST method to add new transactions!"))
+			_, _ = rw.Write([]byte("Please, use POST method to add new transactions!"))
 			return
 		}
 
@@ -84,7 +84,7 @@ func registerHandlers() {
 		if err != nil {
 			fmt.Println(err)
 			rw.WriteHeader(http.StatusUnauthorized)
-			rw.Write([]byte("Authorize failure!"))
+			_, _ = rw.Write([]byte("Authorize failure!"))
 			return
 		}
 		transactions := make(models.BulkTransactions, 0)
@@ -95,24 +95,24 @@ func registerHandlers() {
 		if err != nil {
 			fmt.Println("Encoding response error:", err)
 			rw.WriteHeader(http.StatusInternalServerError)
-			rw.Write([]byte("An error occured on the server! This message is already delivered to developer ;)"))
+			_, _ = rw.Write([]byte("An error occurred on the server! This message is already delivered to developer ;)"))
 		}
 		for _, transaction := range transactions {
-			storage.InsertTransaction(&transaction, dbLogin.Id)
+			_ = storage.InsertTransaction(&transaction, dbLogin.Id)
 		}
 	})
 	http.HandleFunc("/api/getcategories", func(rw http.ResponseWriter, r *http.Request) {
 		SetCORS(&rw)
 		if r.Method != http.MethodGet && r.Method != http.MethodOptions {
 			rw.WriteHeader(http.StatusMethodNotAllowed)
-			rw.Write([]byte("Please, use GET method to get categories!"))
+			_, _ = rw.Write([]byte("Please, use GET method to get categories!"))
 			return
 		}
 		categories, err := storage.GetCategories()
 		if err != nil {
-			fmt.Println("Category getching error:", err)
+			fmt.Println("Category fetching error:", err)
 			rw.WriteHeader(http.StatusInternalServerError)
-			rw.Write([]byte("An error occured on the server! This message is already delivered to developer ;)"))
+			_, _ = rw.Write([]byte("An error occurred on the server! This message is already delivered to developer ;)"))
 			return
 		}
 		encoder := json.NewEncoder(rw)
@@ -120,7 +120,7 @@ func registerHandlers() {
 		if err != nil {
 			fmt.Println("Encoding response error:", err)
 			rw.WriteHeader(http.StatusInternalServerError)
-			rw.Write([]byte("An error occured on the server! This message is already delivered to developer ;)"))
+			_, _ = rw.Write([]byte("An error occurred on the server! This message is already delivered to developer ;)"))
 			return
 		}
 	})
@@ -128,7 +128,7 @@ func registerHandlers() {
 		SetCORS(&rw)
 		if r.Method != http.MethodGet && r.Method != http.MethodOptions {
 			rw.WriteHeader(http.StatusMethodNotAllowed)
-			rw.Write([]byte("Please, use GET method to get categories!"))
+			_, _ = rw.Write([]byte("Please, use GET method to get categories!"))
 			return
 		}
 		filterSettings := models.GetFilterSettings()
@@ -137,7 +137,7 @@ func registerHandlers() {
 		if err != nil {
 			fmt.Println("Encoding response error:", err)
 			rw.WriteHeader(http.StatusInternalServerError)
-			rw.Write([]byte("An error occured on the server! This message is already delivered to developer ;)"))
+			_, _ = rw.Write([]byte("An error occurred on the server! This message is already delivered to developer ;)"))
 			return
 		}
 	})
@@ -145,7 +145,7 @@ func registerHandlers() {
 		SetCORS(&rw)
 		if r.Method != http.MethodPut && r.Method != http.MethodOptions {
 			rw.WriteHeader(http.StatusMethodNotAllowed)
-			rw.Write([]byte("Please, use UPDATE method to update transactions!"))
+			_, _ = rw.Write([]byte("Please, use UPDATE method to update transactions!"))
 			return
 		}
 
@@ -158,28 +158,28 @@ func registerHandlers() {
 		if err != nil {
 			fmt.Println(err)
 			rw.WriteHeader(http.StatusUnauthorized)
-			rw.Write([]byte("Authorize failure!"))
+			_, _ = rw.Write([]byte("Authorize failure!"))
 			return
 		}
 		transaction := models.Transaction{}
 
 		decoder := json.NewDecoder(r.Body)
 
-		decoder.Decode(&transaction)
+		_ = decoder.Decode(&transaction)
 
 		resultTransaction, err := storage.UpdateTransaction(&transaction, dbLogin.Id)
 
 		if err != nil {
 			fmt.Println("Update transaction error:", err)
 			rw.WriteHeader(http.StatusInternalServerError)
-			rw.Write([]byte("An error occured on the server! This message is already delivered to developer ;)"))
+			_, _ = rw.Write([]byte("An error occurred on the server! This message is already delivered to developer ;)"))
 		} else {
 			encoder := json.NewEncoder(rw)
 			err := encoder.Encode(*resultTransaction)
 			if err != nil {
 				fmt.Println("Encoding response error:", err)
 				rw.WriteHeader(http.StatusInternalServerError)
-				rw.Write([]byte("An error occured on the server! This message is already delivered to developer ;)"))
+				_, _ = rw.Write([]byte("An error occurred on the server! This message is already delivered to developer ;)"))
 			}
 		}
 	})
@@ -187,7 +187,7 @@ func registerHandlers() {
 		SetCORS(&rw)
 		if r.Method != http.MethodDelete && r.Method != http.MethodOptions {
 			rw.WriteHeader(http.StatusMethodNotAllowed)
-			rw.Write([]byte("Please, use DELETE method to remove transaction!"))
+			_, _ = rw.Write([]byte("Please, use DELETE method to remove transaction!"))
 			return
 		}
 
@@ -200,7 +200,7 @@ func registerHandlers() {
 		if err != nil {
 			fmt.Println(err)
 			rw.WriteHeader(http.StatusUnauthorized)
-			rw.Write([]byte("Authorize failure!"))
+			_, _ = rw.Write([]byte("Authorize failure!"))
 			return
 		}
 
@@ -210,14 +210,14 @@ func registerHandlers() {
 		if err != nil {
 			fmt.Println("Decode body error:", err)
 			rw.WriteHeader(http.StatusInternalServerError)
-			rw.Write([]byte("An error occured on the server! This message is already delivered to developer ;)"))
+			_, _ = rw.Write([]byte("An error occurred on the server! This message is already delivered to developer ;)"))
 			return
 		}
 		err = storage.RemoveTransaction(removeTransaction.TransactionId, dbLogin.Id)
 		if err != nil {
 			fmt.Println("Remove transaction error:", err)
 			rw.WriteHeader(http.StatusInternalServerError)
-			rw.Write([]byte("An error occured on the server! This message is already delivered to developer ;)"))
+			_, _ = rw.Write([]byte("An error occurred on the server! This message is already delivered to developer ;)"))
 			return
 		}
 	})
@@ -225,7 +225,7 @@ func registerHandlers() {
 		SetCORS(&rw)
 		if r.Method != http.MethodPost && r.Method != http.MethodOptions {
 			rw.WriteHeader(http.StatusMethodNotAllowed)
-			rw.Write([]byte("Please, use POST method to login!"))
+			_, _ = rw.Write([]byte("Please, use POST method to login!"))
 			return
 		}
 
@@ -239,13 +239,13 @@ func registerHandlers() {
 		if err != nil {
 			fmt.Println("Decode body error:", err)
 			rw.WriteHeader(http.StatusInternalServerError)
-			rw.Write([]byte("An error occured on the server! This message is already delivered to developer ;)"))
+			_, _ = rw.Write([]byte("An error occurred on the server! This message is already delivered to developer ;)"))
 			return
 		}
 
 		if loadedSettings.SigningSecret == "" {
 			rw.WriteHeader(http.StatusNotFound)
-			rw.Write([]byte("Secret is not set on the server!"))
+			_, _ = rw.Write([]byte("Secret is not set on the server!"))
 			return
 		}
 
@@ -258,7 +258,7 @@ func registerHandlers() {
 
 		if dbLogin.Login != loginModel.UserName {
 			rw.WriteHeader(http.StatusUnauthorized)
-			rw.Write([]byte("User or password are incorrect!"))
+			_, _ = rw.Write([]byte("User or password are incorrect!"))
 			return
 		}
 		expireDate := time.Now().Add(7 * 24 * time.Hour)
@@ -271,7 +271,7 @@ func registerHandlers() {
 		if err != nil {
 			fmt.Println("Token create error!:", err)
 			rw.WriteHeader(http.StatusInternalServerError)
-			rw.Write([]byte("An error occured on the server! This message is already delivered to developer ;)"))
+			_, _ = rw.Write([]byte("An error occurred on the server! This message is already delivered to developer ;)"))
 			return
 		}
 		loginResult := models.LoginResult{
@@ -283,7 +283,7 @@ func registerHandlers() {
 		if err != nil {
 			fmt.Println("Encoding response error:", err)
 			rw.WriteHeader(http.StatusInternalServerError)
-			rw.Write([]byte("An error occured on the server! This message is already delivered to developer ;)"))
+			_, _ = rw.Write([]byte("An error occurred on the server! This message is already delivered to developer ;)"))
 			return
 		}
 	})
@@ -297,7 +297,7 @@ func registerHandlers() {
 		if err != nil {
 			fmt.Println(err)
 			rw.WriteHeader(http.StatusUnauthorized)
-			rw.Write([]byte("Authorize failure!"))
+			_, _ = rw.Write([]byte("Authorize failure!"))
 			return
 		}
 		rw.WriteHeader(http.StatusOK)
@@ -310,7 +310,7 @@ func registerHandlers() {
 		}
 		if r.Method != http.MethodPost {
 			rw.WriteHeader(http.StatusMethodNotAllowed)
-			rw.Write([]byte("Please, use POST method to fetch transactions!"))
+			_, _ = rw.Write([]byte("Please, use POST method to fetch transactions!"))
 			return
 		}
 		authTokenHeader := r.Header.Get("Token")
@@ -318,17 +318,17 @@ func registerHandlers() {
 		if err != nil {
 			fmt.Println(err)
 			rw.WriteHeader(http.StatusUnauthorized)
-			rw.Write([]byte("Authorize failure!"))
+			_, _ = rw.Write([]byte("Authorize failure!"))
 			return
 		}
 		decoder := json.NewDecoder(r.Body)
 		filteredRequest := models.FilteredRequest{}
-		decoder.Decode(&filteredRequest)
+		_ = decoder.Decode(&filteredRequest)
 		transactions, err := storage.GetFilteredTransactions(dbLogin.Id, filteredRequest.PageNumber, filteredRequest.Pagination, &filteredRequest.Filters)
 		if err != nil {
 			fmt.Println("Fetching transactions error:", err)
 			rw.WriteHeader(http.StatusInternalServerError)
-			rw.Write([]byte("An error occured on the server! This message is already delivered to developer ;)"))
+			_, _ = rw.Write([]byte("An error occurred on the server! This message is already delivered to developer ;)"))
 			return
 		}
 		encoder := json.NewEncoder(rw)
@@ -336,7 +336,7 @@ func registerHandlers() {
 		if err != nil {
 			fmt.Println("Encoding response error:", err)
 			rw.WriteHeader(http.StatusInternalServerError)
-			rw.Write([]byte("An error occured on the server! This message is already delivered to developer ;)"))
+			_, _ = rw.Write([]byte("An error occurred on the server! This message is already delivered to developer ;)"))
 			return
 		}
 	})
@@ -347,19 +347,19 @@ func registerHandlers() {
 		}
 		if r.Method != http.MethodPost {
 			rw.WriteHeader(http.StatusMethodNotAllowed)
-			rw.Write([]byte("Please, use POST method to get stats!"))
+			_, _ = rw.Write([]byte("Please, use POST method to get stats!"))
 			return
 		}
 
 		decoder := json.NewDecoder(r.Body)
 		registerModel := models.RegisterModel{}
-		decoder.Decode(&registerModel)
+		_ = decoder.Decode(&registerModel)
 
 		inserted, err := storage.AddUser(&registerModel)
 		if err != nil {
 			fmt.Println(err)
 			rw.WriteHeader(http.StatusUnauthorized)
-			rw.Write([]byte("Authorize failure!"))
+			_, _ = rw.Write([]byte("Authorize failure!"))
 			return
 		}
 		if !inserted {
@@ -376,7 +376,7 @@ func registerHandlers() {
 		if err != nil {
 			fmt.Println("Token create error!:", err)
 			rw.WriteHeader(http.StatusInternalServerError)
-			rw.Write([]byte("An error occured on the server! This message is already delivered to developer ;)"))
+			_, _ = rw.Write([]byte("An error occurred on the server! This message is already delivered to developer ;)"))
 			return
 		}
 		loginResult := models.LoginResult{
@@ -388,7 +388,7 @@ func registerHandlers() {
 		if err != nil {
 			fmt.Println("Encoding response error:", err)
 			rw.WriteHeader(http.StatusInternalServerError)
-			rw.Write([]byte("An error occured on the server! This message is already delivered to developer ;)"))
+			_, _ = rw.Write([]byte("An error occurred on the server! This message is already delivered to developer ;)"))
 			return
 		}
 	})
@@ -399,7 +399,7 @@ func registerHandlers() {
 		}
 		if r.Method != http.MethodPost {
 			rw.WriteHeader(http.StatusMethodNotAllowed)
-			rw.Write([]byte("Please, use POST method to get stats!"))
+			_, _ = rw.Write([]byte("Please, use POST method to get stats!"))
 			return
 		}
 
@@ -408,19 +408,19 @@ func registerHandlers() {
 		if err != nil {
 			fmt.Println(err)
 			rw.WriteHeader(http.StatusUnauthorized)
-			rw.Write([]byte("Authorize failure!"))
+			_, _ = rw.Write([]byte("Authorize failure!"))
 			return
 		}
 
 		decoder := json.NewDecoder(r.Body)
 		filterBatch := models.FilterBatch{}
-		decoder.Decode(&filterBatch)
+		_ = decoder.Decode(&filterBatch)
 
 		categorySummaries, err := storage.GetTransactionsSummary(dbLogin.Id, filterBatch)
 		if err != nil {
 			fmt.Println("Fetching transactions error:", err)
 			rw.WriteHeader(http.StatusInternalServerError)
-			rw.Write([]byte("An error occured on the server! This message is already delivered to developer ;)"))
+			_, _ = rw.Write([]byte("An error occurred on the server! This message is already delivered to developer ;)"))
 			return
 		}
 		encoder := json.NewEncoder(rw)
@@ -428,7 +428,7 @@ func registerHandlers() {
 		if err != nil {
 			fmt.Println("Encoding response error:", err)
 			rw.WriteHeader(http.StatusInternalServerError)
-			rw.Write([]byte("An error occured on the server! This message is already delivered to developer ;)"))
+			_, _ = rw.Write([]byte("An error occurred on the server! This message is already delivered to developer ;)"))
 			return
 		}
 	})

@@ -2,42 +2,37 @@ package storage
 
 import (
 	"crypto/sha256"
-	"database/sql"
 	"fmt"
-	"net/url"
+	"github.com/jackc/pgx"
+	"os"
 	"spendon/models"
-
-	mssql "github.com/denisenkom/go-mssqldb"
 )
 
 const (
-	insertTransaction           = "INSERT INTO dbo.Transactions (Amount, SpentAt, Note, CategoryId, UserId) VALUES (@AMOUNT, @SpentAt, @Note, @Category, @UserId)"
-	insertUser                  = "IF NOT EXISTS (select * from dbo.Users where [Login]=@Login) BEGIN INSERT INTO dbo.Users ([Login], PasswordHash, Currency) VALUES(@Login, @Hash, @Currency) END"
-	selectCategories            = "SELECT * FROM dbo.Categories"
-	updateTransaction           = "UPDATE dbo.Transactions SET Amount=@AMOUNT, SpentAt=@SPENTAT, Note=@NOTE, CategoryId=@CATEGORYID where Id=@ID and UserId=@UserId"
-	removeTransaction           = "DELETE FROM dbo.Transactions WHERE Id=@ID and UserId=@UserId"
-	getPaginatedTransactions    = "SELECT Id, Amount, SpentAt, Note, CategoryId FROM dbo.Transactions WHERE %s UserId=@UserId ORDER BY SpentAt DESC OFFSET @OFFSETCOUNT ROWS FETCH NEXT @FETCHCOUNT ROWS ONLY"
-	getUserByPassword           = "SELECT Id, Login from dbo.Users WHERE Login=@LOGIN and PasswordHash=@PWD"
-	getUserByLogin              = "SELECT Id, Login from dbo.Users WHERE Login=@LOGIN"
-	getStatistics               = "SELECT CategoryId , SUM(Amount) from Transactions where %s UserId=@UserId GROUP BY CategoryId"
-	getTransactionsCountForUser = "SELECT COUNT(*) as cnt FROM dbo.Transactions WHERE %s UserId=@UserId"
+	insertTransaction           = "INSERT INTO transactions (id, amount, spentat, note, categoryid, userid) VALUES (gen_random_uuid(), $1, $2, $3, $4, $5)"
+	insertUser                  = "IF NOT EXISTS (select * from dbo.Users where login=$1) THEN INSERT INTO users (login, passwordhash, currency) VALUES($1, $2, $3) END IF"
+	selectCategories            = "SELECT * FROM categories"
+	updateTransaction           = "UPDATE transactions SET amount=$1, spentat=$2, note=$3, categoryid=$4 where id=$5 and userid=$6"
+	removeTransaction           = "DELETE FROM transactions WHERE id=$1 and userid=$2"
+	getPaginatedTransactions    = "SELECT id, amount, spentat, note, categoryid FROM transactions WHERE %s userId=$%d ORDER BY spentat DESC OFFSET $%d ROWS FETCH NEXT $%d ROWS ONLY"
+	getUserByPassword           = "SELECT id, login from users WHERE login=$1 and passwordhash=$2"
+	getUserByLogin              = "SELECT id, login from users WHERE login=$1"
+	getStatistics               = "SELECT categoryid , SUM(amount) from transactions where %s userid=$%d GROUP BY categoryid"
+	getTransactionsCountForUser = "SELECT COUNT(*) as cnt FROM transactions WHERE %s userid=$1"
 )
 
-var databaseConnection *sql.DB
+var databaseConnection *pgx.Conn
 
-func StartConnection(driverName, host, user, password string) {
-	tst := &url.URL{
-		Scheme: driverName,
-		Host:   host,
-		User:   url.UserPassword(user, password),
+func StartConnection() {
+	connStr, err := pgx.ParseConnectionString(os.Getenv("DATABASE_URL"))
+	if err != nil {
+		fmt.Println("error parsing db url", err)
 	}
-	connString := tst.String()
-	dbConnector, err := mssql.NewConnector(connString)
+	conn, err := pgx.Connect(connStr)
 	if err != nil {
 		fmt.Println("DB connection error", err)
 	}
-	dbConnector.SessionInitSQL = "USE SpendonDB"
-	databaseConnection = sql.OpenDB(dbConnector)
+	databaseConnection = conn
 }
 
 func InsertTransaction(transaction *models.Transaction, userId int64) error {
@@ -46,20 +41,16 @@ func InsertTransaction(transaction *models.Transaction, userId int64) error {
 		return fmt.Errorf("DB not connected")
 	}
 	rslt, err := databaseConnection.Exec(insertTransaction,
-		sql.Named("AMOUNT", transaction.Amount),
-		sql.Named("SpentAt", transaction.SpentAt),
-		sql.Named("Note", transaction.Note),
-		sql.Named("Category", transaction.CategoryId),
-		sql.Named("UserId", userId))
+		transaction.Amount,
+		transaction.SpentAt,
+		transaction.Note,
+		transaction.CategoryId,
+		userId)
 	if err != nil {
 		fmt.Println(err)
 		return err
 	}
-	rowsAffectedCount, err := rslt.RowsAffected()
-	if err != nil {
-		fmt.Println(err)
-		return err
-	}
+	rowsAffectedCount := rslt.RowsAffected()
 	fmt.Println("Rows affected:", rowsAffectedCount)
 	return nil
 }
@@ -92,17 +83,17 @@ func UpdateTransaction(transaction *models.Transaction, userId int64) (*models.T
 		return &models.Transaction{}, fmt.Errorf("DB not connected")
 	}
 	result, err := databaseConnection.Exec(updateTransaction,
-		sql.Named("AMOUNT", transaction.Amount),
-		sql.Named("SPENTAT", transaction.SpentAt),
-		sql.Named("NOTE", transaction.Note),
-		sql.Named("CATEGORYID", transaction.CategoryId),
-		sql.Named("ID", transaction.Id),
-		sql.Named("UserId", userId))
+		transaction.Amount,
+		transaction.SpentAt,
+		transaction.Note,
+		transaction.CategoryId,
+		transaction.Id,
+		userId)
 	if err != nil {
 		fmt.Println(err)
 		return &models.Transaction{}, err
 	}
-	fmt.Println("Update result:", result)
+	fmt.Println("Update result:", result.RowsAffected())
 	return transaction, nil
 }
 
@@ -111,12 +102,12 @@ func RemoveTransaction(id, userId int64) error {
 		return fmt.Errorf("DB not connected")
 	}
 	result, err := databaseConnection.Exec(removeTransaction,
-		sql.Named("ID", id),
-		sql.Named("UserId", userId))
+		id,
+		userId)
 	if err != nil {
 		return err
 	}
-	fmt.Println("Delete result:", result)
+	fmt.Println("Delete result:", result.RowsAffected())
 	return nil
 }
 
@@ -128,8 +119,8 @@ func GetUserByPassword(password, login string) (*models.DbLogin, error) {
 	pwdHash := sha256.Sum256([]byte(password))
 	pwdHashString := fmt.Sprintf("%x", pwdHash)
 	row := databaseConnection.QueryRow(getUserByPassword,
-		sql.Named("LOGIN", login),
-		sql.Named("PWD", pwdHashString))
+		login,
+		pwdHashString)
 	err := row.Scan(&dbLogin.Id, &dbLogin.Login)
 	if err != nil {
 		return &dbLogin, err
@@ -146,8 +137,7 @@ func GetUserByLogin(login string) (*models.DbLogin, error) {
 	if databaseConnection == nil {
 		return &dbLogin, fmt.Errorf("DB not connected")
 	}
-	row := databaseConnection.QueryRow(getUserByLogin,
-		sql.Named("LOGIN", login))
+	row := databaseConnection.QueryRow(getUserByLogin, login)
 
 	err := row.Scan(&dbLogin.Id, &dbLogin.Login)
 	if err != nil {
@@ -173,9 +163,9 @@ func GetFilteredTransactions(userId, pageNumber, pagination int64, filterBatch *
 
 	offset := pageNumber * pagination
 
-	namedArgs = append(namedArgs, sql.Named("UserId", userId))
-	namedArgs = append(namedArgs, sql.Named("OFFSETCOUNT", offset))
-	namedArgs = append(namedArgs, sql.Named("FETCHCOUNT", pagination))
+	namedArgs = append(namedArgs, userId)
+	namedArgs = append(namedArgs, offset)
+	namedArgs = append(namedArgs, pagination)
 
 	interfaceArgs := make([]interface{}, 0)
 
@@ -183,7 +173,8 @@ func GetFilteredTransactions(userId, pageNumber, pagination int64, filterBatch *
 		interfaceArgs = append(interfaceArgs, arg)
 	}
 
-	formattedTransaction := fmt.Sprintf(getPaginatedTransactions, filterString)
+	parameterIndex := len(namedArgs)
+	formattedTransaction := fmt.Sprintf(getPaginatedTransactions, filterString, parameterIndex+1, parameterIndex+2, parameterIndex+3)
 	rows, err := databaseConnection.Query(formattedTransaction,
 		interfaceArgs...)
 	if err != nil {
@@ -223,7 +214,7 @@ func GetTransactionsSummary(userId int64, filterBatch models.FilterBatch) (model
 		return nil, err
 	}
 
-	namedArgs = append(namedArgs, sql.Named("UserId", userId))
+	namedArgs = append(namedArgs, userId)
 
 	interfaceArgs := make([]interface{}, 0)
 
@@ -231,9 +222,9 @@ func GetTransactionsSummary(userId int64, filterBatch models.FilterBatch) (model
 		interfaceArgs = append(interfaceArgs, arg)
 	}
 
-	formattedResuest := fmt.Sprintf(getStatistics, filterString)
+	formattedRequest := fmt.Sprintf(getStatistics, filterString, len(namedArgs)+1)
 
-	rows, err := databaseConnection.Query(formattedResuest,
+	rows, err := databaseConnection.Query(formattedRequest,
 		interfaceArgs...)
 	if err != nil {
 		fmt.Println(err)
@@ -262,13 +253,13 @@ func AddUser(registerModel *models.RegisterModel) (bool, error) {
 	pwdHashString := fmt.Sprintf("%x", pwdHash)
 
 	sqlResult, err := databaseConnection.Exec(insertUser,
-		sql.Named("Login", registerModel.Login),
-		sql.Named("Hash", pwdHashString),
-		sql.Named("Currency", "UAH"))
+		registerModel.Login,
+		pwdHashString,
+		"UAH")
 	if err != nil {
 		return false, err
 	}
-	rowResult, err := sqlResult.RowsAffected()
+	rowResult := sqlResult.RowsAffected()
 	if err != nil {
 		return false, err
 	}

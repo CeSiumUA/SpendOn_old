@@ -1,7 +1,6 @@
 package models
 
 import (
-	"database/sql"
 	"fmt"
 	"strings"
 )
@@ -25,27 +24,26 @@ type FilterModel struct {
 	Operator int
 }
 
-func (filterModel *FilterModel) Build(nameForParameter string) (string, sql.NamedArg, error) {
+func (filterModel *FilterModel) Build(nameForParameter string) (string, interface{}, error) {
 	sign, ok := signsMap[filterModel.Operator]
 	if !ok {
-		return "", sql.NamedArg{}, fmt.Errorf("sign was not found")
+		return "", "", fmt.Errorf("sign was not found")
 	}
-	namedParam := sql.Named(nameForParameter, filterModel.Value)
 	paramName, ok := fieldsMap[filterModel.Property]
 	if !ok {
-		return "", sql.NamedArg{}, fmt.Errorf("field was not found")
+		return "", "", fmt.Errorf("field was not found")
 	}
-	return paramName + sign + fmt.Sprintf("@%s", nameForParameter), namedParam, nil
+	return paramName + sign + nameForParameter, filterModel.Value, nil
 }
 
-func (filterBatch *FilterBatch) Build() (string, []sql.NamedArg, error) {
+func (filterBatch *FilterBatch) Build() (string, []interface{}, error) {
 	if len(*filterBatch) == 0 {
 		return "", nil, nil
 	}
-	namedArgs := make([]sql.NamedArg, 0)
+	namedArgs := make([]interface{}, 0)
 	params := make([]string, 0)
 	for idx, el := range *filterBatch {
-		paramName, namedArg, err := el.Build(fmt.Sprintf("P%d", idx+1))
+		paramName, namedArg, err := el.Build(fmt.Sprintf("$%d", idx+1))
 		if err != nil {
 			return "", nil, err
 		}
@@ -63,13 +61,6 @@ const (
 	NotEqual
 	LessOrEqual
 	GreaterOrEqual
-)
-
-const (
-	Number = iota
-	Text
-	Date
-	Select
 )
 
 const (
