@@ -17,7 +17,7 @@ const (
 	getUserByPassword           = "SELECT id, login from users WHERE login=$1 and passwordhash=$2"
 	getUserByLogin              = "SELECT id, login from users WHERE login=$1"
 	getStatistics               = "SELECT categoryid , SUM(amount)::numeric from transactions where %s userid=$%d GROUP BY categoryid"
-	getTransactionsCountForUser = "SELECT COUNT(*) as cnt FROM transactions WHERE %s userid=$1"
+	getTransactionsCountForUser = "SELECT COUNT(*) as cnt FROM transactions WHERE %s userid=$%d"
 )
 
 var databaseConnection *pgx.Conn
@@ -204,8 +204,8 @@ func GetFilteredTransactions(userId, pageNumber, pagination int64, filterBatch *
 	for _, arg := range countArgs {
 		countInterfaceArgs = append(countInterfaceArgs, arg)
 	}
-
-	row := databaseConnection.QueryRow(fmt.Sprintf(getTransactionsCountForUser, filterString),
+	filteredTransactionCountsQuery := fmt.Sprintf(getTransactionsCountForUser, filterString, len(countArgs))
+	row := databaseConnection.QueryRow(filteredTransactionCountsQuery,
 		countInterfaceArgs...)
 	err = row.Scan(&bulkTransactions.Count)
 	if err != nil {
