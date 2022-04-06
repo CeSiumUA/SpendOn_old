@@ -17,11 +17,7 @@ var loadedSettings *settings.Settings
 func main() {
 	loadedSettings = settings.LoadSettings()
 	if loadedSettings.IsValid() {
-		conn := storage.StartConnection(loadedSettings.DatabaseUrl)
-		defer func() {
-			fmt.Println("closing db connection...")
-			_ = conn.Close()
-		}()
+		storage.InitializeSettings(loadedSettings.DatabaseUrl)
 	} else {
 		fmt.Println("Settings were not loaded")
 	}

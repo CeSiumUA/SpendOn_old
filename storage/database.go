@@ -20,27 +20,29 @@ const (
 	getTransactionsCountForUser = "SELECT COUNT(*) as cnt FROM transactions WHERE %s userid=$%d"
 )
 
-var databaseConnection *pgx.Conn
+var connectionStringConfig pgx.ConnConfig
 
-func StartConnection(connectionUrl string) *pgx.Conn {
+func InitializeSettings(connectionUrl string) {
 	connStr, err := pgx.ParseConnectionString(connectionUrl)
 	if err != nil {
 		fmt.Println("error parsing db url", err)
 	}
-	conn, err := pgx.Connect(connStr)
-	if err != nil {
-		fmt.Println("DB connection error", err)
-	}
-	databaseConnection = conn
-	return conn
+	connectionStringConfig = connStr
 }
 
 func InsertTransaction(transaction *models.Transaction, userId int64) error {
-	if databaseConnection == nil {
-		fmt.Println("DB not connected!")
-		return fmt.Errorf("DB not connected")
+	connection, err := pgx.Connect(connectionStringConfig)
+	if err != nil {
+		fmt.Println("Connection open error:", err)
+		return err
 	}
-	rslt, err := databaseConnection.Exec(insertTransaction,
+	defer func() {
+		err := connection.Close()
+		if err != nil {
+			fmt.Println("Connection close error:", err)
+		}
+	}()
+	rslt, err := connection.Exec(insertTransaction,
 		fmt.Sprintf("$%f", transaction.Amount),
 		transaction.SpentAt,
 		transaction.Note,
@@ -56,11 +58,19 @@ func InsertTransaction(transaction *models.Transaction, userId int64) error {
 }
 
 func GetCategories() (models.Categories, error) {
-	if databaseConnection == nil {
-		return nil, fmt.Errorf("DB not connected")
+	connection, err := pgx.Connect(connectionStringConfig)
+	if err != nil {
+		fmt.Println("Connection open error:", err)
+		return nil, err
 	}
+	defer func() {
+		err := connection.Close()
+		if err != nil {
+			fmt.Println("Connection close error:", err)
+		}
+	}()
 	categories := make(models.Categories, 0)
-	rows, err := databaseConnection.Query(selectCategories)
+	rows, err := connection.Query(selectCategories)
 	if err != nil {
 		fmt.Println(err)
 		return nil, err
@@ -79,10 +89,18 @@ func GetCategories() (models.Categories, error) {
 }
 
 func UpdateTransaction(transaction *models.Transaction, userId int64) (*models.Transaction, error) {
-	if databaseConnection == nil {
+	connection, err := pgx.Connect(connectionStringConfig)
+	if err != nil {
+		fmt.Println("Connection open error:", err)
 		return &models.Transaction{}, fmt.Errorf("DB not connected")
 	}
-	result, err := databaseConnection.Exec(updateTransaction,
+	defer func() {
+		err := connection.Close()
+		if err != nil {
+			fmt.Println("Connection close error:", err)
+		}
+	}()
+	result, err := connection.Exec(updateTransaction,
 		transaction.Amount,
 		transaction.SpentAt,
 		transaction.Note,
@@ -98,10 +116,18 @@ func UpdateTransaction(transaction *models.Transaction, userId int64) (*models.T
 }
 
 func RemoveTransaction(id, userId int64) error {
-	if databaseConnection == nil {
+	connection, err := pgx.Connect(connectionStringConfig)
+	if err != nil {
+		fmt.Println("Connection open error:", err)
 		return fmt.Errorf("DB not connected")
 	}
-	result, err := databaseConnection.Exec(removeTransaction,
+	defer func() {
+		err := connection.Close()
+		if err != nil {
+			fmt.Println("Connection close error:", err)
+		}
+	}()
+	result, err := connection.Exec(removeTransaction,
 		id,
 		userId)
 	if err != nil {
@@ -112,16 +138,24 @@ func RemoveTransaction(id, userId int64) error {
 }
 
 func GetUserByPassword(password, login string) (*models.DbLogin, error) {
-	if databaseConnection == nil {
-		return &models.DbLogin{}, fmt.Errorf("DB not connected")
-	}
 	dbLogin := models.DbLogin{}
+	connection, err := pgx.Connect(connectionStringConfig)
+	if err != nil {
+		fmt.Println("Connection open error:", err)
+		return &dbLogin, fmt.Errorf("DB not connected")
+	}
+	defer func() {
+		err := connection.Close()
+		if err != nil {
+			fmt.Println("Connection close error:", err)
+		}
+	}()
 	pwdHash := sha256.Sum256([]byte(password))
 	pwdHashString := fmt.Sprintf("%x", pwdHash)
-	row := databaseConnection.QueryRow(getUserByPassword,
+	row := connection.QueryRow(getUserByPassword,
 		login,
 		pwdHashString)
-	err := row.Scan(&dbLogin.Id, &dbLogin.Login)
+	err = row.Scan(&dbLogin.Id, &dbLogin.Login)
 	if err != nil {
 		return &dbLogin, err
 	}
@@ -134,12 +168,20 @@ func GetUserByPassword(password, login string) (*models.DbLogin, error) {
 
 func GetUserByLogin(login string) (*models.DbLogin, error) {
 	dbLogin := models.DbLogin{}
-	if databaseConnection == nil {
+	connection, err := pgx.Connect(connectionStringConfig)
+	if err != nil {
+		fmt.Println("Connection open error:", err)
 		return &dbLogin, fmt.Errorf("DB not connected")
 	}
-	row := databaseConnection.QueryRow(getUserByLogin, login)
+	defer func() {
+		err := connection.Close()
+		if err != nil {
+			fmt.Println("Connection close error:", err)
+		}
+	}()
+	row := connection.QueryRow(getUserByLogin, login)
 
-	err := row.Scan(&dbLogin.Id, &dbLogin.Login)
+	err = row.Scan(&dbLogin.Id, &dbLogin.Login)
 	if err != nil {
 		return &dbLogin, err
 	}
@@ -151,9 +193,17 @@ func GetUserByLogin(login string) (*models.DbLogin, error) {
 }
 
 func GetFilteredTransactions(userId, pageNumber, pagination int64, filterBatch *models.FilterBatch) (models.PagedTransactions, error) {
-	if databaseConnection == nil {
+	connection, err := pgx.Connect(connectionStringConfig)
+	if err != nil {
+		fmt.Println("Connection open error:", err)
 		return models.PagedTransactions{}, fmt.Errorf("DB not connected")
 	}
+	defer func() {
+		err := connection.Close()
+		if err != nil {
+			fmt.Println("Connection close error:", err)
+		}
+	}()
 
 	filterString, namedArgs, err := filterBatch.Build()
 
@@ -179,7 +229,7 @@ func GetFilteredTransactions(userId, pageNumber, pagination int64, filterBatch *
 	}
 
 	formattedTransaction := fmt.Sprintf(getPaginatedTransactions, filterString, parameterIndex+1, parameterIndex+2, parameterIndex+3)
-	rows, err := databaseConnection.Query(formattedTransaction,
+	rows, err := connection.Query(formattedTransaction,
 		interfaceArgs...)
 	if err != nil {
 		fmt.Println(err)
@@ -205,7 +255,7 @@ func GetFilteredTransactions(userId, pageNumber, pagination int64, filterBatch *
 		countInterfaceArgs = append(countInterfaceArgs, arg)
 	}
 	filteredTransactionCountsQuery := fmt.Sprintf(getTransactionsCountForUser, filterString, len(countArgs))
-	row := databaseConnection.QueryRow(filteredTransactionCountsQuery,
+	row := connection.QueryRow(filteredTransactionCountsQuery,
 		countInterfaceArgs...)
 	err = row.Scan(&bulkTransactions.Count)
 	if err != nil {
@@ -215,9 +265,17 @@ func GetFilteredTransactions(userId, pageNumber, pagination int64, filterBatch *
 }
 
 func GetTransactionsSummary(userId int64, filterBatch models.FilterBatch) (models.CategoriesSummary, error) {
-	if databaseConnection == nil {
+	connection, err := pgx.Connect(connectionStringConfig)
+	if err != nil {
+		fmt.Println("Connection open error:", err)
 		return nil, fmt.Errorf("DB not connected")
 	}
+	defer func() {
+		err := connection.Close()
+		if err != nil {
+			fmt.Println("Connection close error:", err)
+		}
+	}()
 
 	filterString, namedArgs, err := filterBatch.Build()
 
@@ -237,7 +295,7 @@ func GetTransactionsSummary(userId int64, filterBatch models.FilterBatch) (model
 
 	formattedRequest := fmt.Sprintf(getStatistics, filterString, parameterIndex+1)
 
-	rows, err := databaseConnection.Query(formattedRequest,
+	rows, err := connection.Query(formattedRequest,
 		interfaceArgs...)
 	if err != nil {
 		fmt.Println(err)
@@ -258,14 +316,22 @@ func GetTransactionsSummary(userId int64, filterBatch models.FilterBatch) (model
 }
 
 func AddUser(registerModel *models.RegisterModel) (bool, error) {
-	if databaseConnection == nil {
+	connection, err := pgx.Connect(connectionStringConfig)
+	if err != nil {
+		fmt.Println("Connection open error:", err)
 		return false, fmt.Errorf("DB not connected")
 	}
+	defer func() {
+		err := connection.Close()
+		if err != nil {
+			fmt.Println("Connection close error:", err)
+		}
+	}()
 
 	pwdHash := sha256.Sum256([]byte(registerModel.Password))
 	pwdHashString := fmt.Sprintf("%x", pwdHash)
 
-	sqlResult, err := databaseConnection.Exec(insertUser,
+	sqlResult, err := connection.Exec(insertUser,
 		registerModel.Login,
 		pwdHashString,
 		"UAH")
