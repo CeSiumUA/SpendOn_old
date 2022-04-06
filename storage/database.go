@@ -4,12 +4,11 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"github.com/jackc/pgx"
-	"os"
 	"spendon/models"
 )
 
 const (
-	insertTransaction           = "INSERT INTO transactions (id, amount, spentat, note, categoryid, userid) VALUES (gen_random_uuid(), $1, $2, $3, $4, $5)"
+	insertTransaction           = "INSERT INTO transactions (amount, spentat, note, categoryid, userid) VALUES ($1, $2, $3, $4, $5)"
 	insertUser                  = "IF NOT EXISTS (select * from dbo.Users where login=$1) THEN INSERT INTO users (login, passwordhash, currency) VALUES($1, $2, $3) END IF"
 	selectCategories            = "SELECT * FROM categories"
 	updateTransaction           = "UPDATE transactions SET amount=$1, spentat=$2, note=$3, categoryid=$4 where id=$5 and userid=$6"
@@ -23,9 +22,8 @@ const (
 
 var databaseConnection *pgx.Conn
 
-func StartConnection() {
-	dbUrl := os.Getenv("DATABASE_URL")
-	connStr, err := pgx.ParseConnectionString(dbUrl)
+func StartConnection(connectionUrl string) *pgx.Conn {
+	connStr, err := pgx.ParseConnectionString(connectionUrl)
 	if err != nil {
 		fmt.Println("error parsing db url", err)
 	}
@@ -34,6 +32,7 @@ func StartConnection() {
 		fmt.Println("DB connection error", err)
 	}
 	databaseConnection = conn
+	return conn
 }
 
 func InsertTransaction(transaction *models.Transaction, userId int64) error {
@@ -42,7 +41,7 @@ func InsertTransaction(transaction *models.Transaction, userId int64) error {
 		return fmt.Errorf("DB not connected")
 	}
 	rslt, err := databaseConnection.Exec(insertTransaction,
-		transaction.Amount,
+		fmt.Sprintf("$%f", transaction.Amount),
 		transaction.SpentAt,
 		transaction.Note,
 		transaction.CategoryId,
