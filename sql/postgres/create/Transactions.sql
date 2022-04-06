@@ -1,8 +1,9 @@
 create table Transactions
 (
-	Id uniqueidentifier primary key,
+	Id uuid primary key,
 	Amount MONEY NOT NULL,
-	SpentAt DATETIME2 NOT NULL,
-	Note NVARCHAR(max),
-	CategoryId INT REFERENCES Categories (Id) NOT NULL
+	SpentAt TIMESTAMP NOT NULL,
+	Note TEXT,
+	CategoryId INT REFERENCES Categories (Id) NOT NULL,
+    UserId INT not null
 )

@@ -9,10 +9,7 @@ import (
 )
 
 type Settings struct {
-	Driver        string
-	Host          string
-	User          string
-	Password      string
+	DatabaseUrl   string
 	SigningSecret string
 	Port          string
 }
@@ -33,7 +30,7 @@ func (settings *Settings) Deserialize(bytes []byte) {
 }
 
 func (settings *Settings) IsValid() bool {
-	return settings.Driver != "" && settings.Host != "" && settings.User != "" && settings.Password != ""
+	return settings.SigningSecret != ""
 }
 
 func LoadSettings() *Settings {
@@ -55,10 +52,7 @@ func LoadSettings() *Settings {
 
 func loadFromEnvironmentVariables() *Settings {
 	settings := Settings{
-		Driver:        os.Getenv("Spendon_driver"),
-		Host:          os.Getenv("Spendon_host"),
-		User:          os.Getenv("Spendon_user"),
-		Password:      os.Getenv("Spendon_password"),
+		DatabaseUrl:   os.Getenv("DATABASE_URL"),
 		SigningSecret: os.Getenv("SIGNING_SECRET"),
 		Port:          os.Getenv("PORT"),
 	}
